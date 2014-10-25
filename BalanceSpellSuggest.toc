@@ -1,0 +1,8 @@
+## Interface: 60000
+## Title: Balance Spell Suggest
+## Author: envY
+## Version: 0.1
+
+embed.xml
+
+Core.lua
