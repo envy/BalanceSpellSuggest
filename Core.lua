@@ -1,4 +1,6 @@
--- TODO: check if player is druid and balance
+if select(2, UnitClass("player")) ~= "DRUID" then
+    return
+end
 
 Addon = LibStub("AceAddon-3.0"):NewAddon("BalanceSpellSuggest", "AceTimer-3.0")
 

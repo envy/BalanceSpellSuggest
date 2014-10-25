@@ -3,6 +3,7 @@
 ## Author: envY
 ## Version: 0.1
 ## SavedVariables: BalanceSpellSuggestDB
+## OptionalDeps: Ace3
 
 embed.xml
 
