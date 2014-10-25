@@ -1,4 +1,4 @@
-external:
+externals:
     libs/LibStub:
         url: svn://svn.wowace.com/wow/ace3/mainline/trunk/LibStub
     libs/AceAddon-3.0:
