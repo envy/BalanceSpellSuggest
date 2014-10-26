@@ -3,7 +3,7 @@ if select(2, UnitClass("player")) ~= "DRUID" then
     return
 end
 
-BalanceSpellSuggest = LibStub("AceAddon-3.0"):NewAddon("BalanceSpellSuggest", "AceTimer-3.0")
+BalanceSpellSuggest = LibStub("AceAddon-3.0"):NewAddon("BalanceSpellSuggest", "AceTimer-3.0", "AceEvent-3.0")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("BalanceSpellSuggest", true)
 
@@ -145,60 +145,52 @@ function BalanceSpellSuggest:OnInitialize()
     options.args.profile = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
     LibStub("AceConfig-3.0"):RegisterOptionsTable("BalanceSpellSuggest", options)
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions("BalanceSpellSuggest", "Balance Spell Suggest")
+    BalanceSpellSuggest:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+
+    self:SetUpFrames()
 end
 
 
--- Called on login ?
+-- Enable or disable update timer based on current specialization
+function BalanceSpellSuggest:ACTIVE_TALENT_GROUP_CHANGED()
+    local currentSpec = GetSpecialization()
+    if tonumber(currentSpec) == 1 then
+        BalanceSpellSuggest:EnableTimer()
+    else
+        BalanceSpellSuggest:DisableTimer()
+    end
+end
+
+
+-- Called on login
 function BalanceSpellSuggest:OnEnable()
-    -- setup frame
-    if self.updateTimer == nil then
-        self.updateTimer = self:ScheduleRepeatingTimer("UpdateFrames", 0.1)
-    end
-
-    if self.suggestFrame == nil then
-        self.suggestFrame = CreateFrame("Frame", "BSP_Main", UIParent)
-        self.suggestFrame:SetFrameStrata("BACKGROUND")
-        -- TODO: calculate size based on inner frame sizes
-        self.suggestFrame:SetWidth(64)
-        self.suggestFrame:SetHeight(64)
-        self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
-
-        -- create the dragging texture
-        local tex = self.suggestFrame:CreateTexture("ARTWORK")
-        tex:SetTexture(1.0, 0.5, 0)
-        tex:SetAlpha(0.5)
-        self.suggestFrame.draggingTexture = tex
-        if self.db.profile.locked then
-            self.suggestFrame.draggingTexture:ClearAllPoints()
-        else
-            self.suggestFrame.draggingTexture:SetAllPoints()
-            self.suggestFrame:Show()
-        end
-
-        self.nextSpellFrame = CreateFrame("Frame", "BSP_Next", self.suggestFrame)
-        self.nextSpellFrame:SetFrameStrata("BACKGROUND")
-        -- TODO: make size editable
-        self.nextSpellFrame:SetWidth(64)
-        self.nextSpellFrame:SetHeight(64)
-        self.nextSpellFrame:SetPoint("CENTER", 0, 0)
-
-        local suggestTexture = self.nextSpellFrame:CreateTexture(nil, "BACKGROUND")
-        self.nextSpellFrame.texture = suggestTexture
-    end
+    -- enable or diable based on current spec
+    self:ACTIVE_TALENT_GROUP_CHANGED()
 end
 
 
 -- Called after a spec change to non-balance
 function BalanceSpellSuggest:OnDisable()
-    -- teardown frame
-    if self.suggestFrame ~= nil then
-        self.suggestFrame:Hide()
-    end
+    self:DisableTimer()
+end
 
+
+-- Enables the update timer
+function BalanceSpellSuggest:EnableTimer()
+    if self.updateTimer == nil then
+        self.updateTimer = self:ScheduleRepeatingTimer("UpdateFrames", 0.1)
+    end
+end
+
+
+-- Disables the update timer
+function BalanceSpellSuggest:DisableTimer()
     if self.updateTimer ~= nil then
         self:CancelTimer(self.updateTimer)
         self.updateTimer = nil
     end
+
+    self.suggestFrame:Hide()
 end
 
 
@@ -226,7 +218,6 @@ function BalanceSpellSuggest:ToggleFrameLock(_, val)
     else
         self.suggestFrame:SetMovable(true)
         self.suggestFrame:EnableMouse(true)
-        self.suggestFrame:RegisterForDrag("LeftButton")
         self.suggestFrame:SetScript("OnDragStart", self.suggestFrame.StartMoving)
         self.suggestFrame:SetScript("OnDragStop", function(self, button) BalanceSpellSuggest:StopMoving(self, button) end)
         self.suggestFrame.draggingTexture:SetAllPoints()
@@ -237,6 +228,46 @@ function BalanceSpellSuggest:ToggleFrameLock(_, val)
             frame:Hide()
         end
     end
+end
+
+
+-- Set up all needed frames
+function BalanceSpellSuggest:SetUpFrames()
+    -- the main frame hosting all other frames
+    self.suggestFrame = CreateFrame("Frame", "BSP_Main", UIParent)
+    self.suggestFrame:SetFrameStrata("BACKGROUND")
+    -- TODO: calculate size based on inner frame sizes
+    self.suggestFrame:SetWidth(64)
+    self.suggestFrame:SetHeight(64)
+    self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
+    self.suggestFrame:RegisterForDrag("LeftButton")
+
+    -- create the dragging texture
+    local tex = self.suggestFrame:CreateTexture("ARTWORK")
+    tex:SetTexture(1.0, 0.5, 0)
+    tex:SetAlpha(0.5)
+    self.suggestFrame.draggingTexture = tex
+    if self.db.profile.locked then
+        self.suggestFrame:SetMovable(false)
+        self.suggestFrame:EnableMouse(false)
+        self.suggestFrame.draggingTexture:ClearAllPoints()
+    else
+        self.suggestFrame:SetMovable(true)
+        self.suggestFrame:EnableMouse(true)
+        self.suggestFrame.draggingTexture:SetAllPoints()
+        self.suggestFrame:Show()
+    end
+
+    -- the frame for the next spell texture
+    self.nextSpellFrame = CreateFrame("Frame", "BSP_Next", self.suggestFrame)
+    self.nextSpellFrame:SetFrameStrata("BACKGROUND")
+    -- TODO: make size editable
+    self.nextSpellFrame:SetWidth(64)
+    self.nextSpellFrame:SetHeight(64)
+    self.nextSpellFrame:SetPoint("CENTER", 0, 0)
+
+    local suggestTexture = self.nextSpellFrame:CreateTexture(nil, "BACKGROUND")
+    self.nextSpellFrame.texture = suggestTexture
 end
 
 
