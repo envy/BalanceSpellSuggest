@@ -1,7 +1,7 @@
 ## Interface: 60000
 ## Title: Balance Spell Suggest
-## Author: envY
-## Version: 0.1
+## Author: envY (clemenZ9 on curse)
+## Version: 1.1
 ## SavedVariables: BalanceSpellSuggestDB
 ## OptionalDeps: Ace3
 

@@ -1,11 +1,12 @@
 if select(2, UnitClass("player")) ~= "DRUID" then
+    -- no druid, no addon
     return
 end
 
 Addon = LibStub("AceAddon-3.0"):NewAddon("BalanceSpellSuggest", "AceTimer-3.0")
 
 Addon.suggestFrame = nil
-Addon.suggestTexture = nil
+Addon.nextSpellFrame = nil
 Addon.updateTimer = nil
 
 local options = {
@@ -17,85 +18,106 @@ local options = {
         behavior = {
             name = "Behavior",
             type = "group",
+            order = 0,
             args = {
                 dotRefreshPower = {
                     name = "DoT refresh power",
-                    desc = "Check and remind me if a DoT needs to be refreshed if my eclipse power is below this value.",
+                    desc = "Check and remind me if a DoT needs to be refreshed if my eclipse power is below this value when goind Lunar -> Solar or Solar -> Lunar.",
                     type = "range",
+                    order = 0,
                     min = 0,
                     max = 100,
                     softMin = 10,
                     softMax = 50,
                     step = 1,
-                    set = function(info, val) Addon.db.profile.dotRefreshPower = val end,
-                    get = function(info) return Addon.db.profile.dotRefreshPower end
+                    set = function(_, val) Addon.db.profile.dotRefreshPower = val end,
+                    get = function(_) return Addon.db.profile.dotRefreshPower end
                 },
                 starfireWrathTippingPoint = {
                     name = "Starfire -> Wrath tipping point",
                     desc = "When going from lunar to solar, at which power start to suggest Wrath instead of Starfire while still in lunar.",
                     type = "range",
+                    order = 1,
                     min = 0,
                     max = 100,
                     softMin = 10,
                     softMax = 50,
                     step = 1,
-                    set = function(info, val) Addon.db.profile.starfireWrathTippingPoint = val end,
-                    get = function(info) return Addon.db.profile.starfireWrathTippingPoint end
+                    set = function(_, val) Addon.db.profile.starfireWrathTippingPoint = val end,
+                    get = function(_) return Addon.db.profile.starfireWrathTippingPoint end
                 },
                 wrathStarfireTippingPoint = {
                     name = "Wrath -> Starfire tipping point",
                     desc = "When going from solar to lunar, at which power start to suggest Starfire instead of Wrath while still in solar.",
                     type = "range",
+                    order = 2,
                     min = 0,
                     max = 100,
                     softMin = 10,
                     softMax = 50,
                     step = 1,
-                    set = function(info, val) Addon.db.profile.wrathStarfireTippingPoint = val end,
-                    get = function(info) return Addon.db.profile.wrathStarfireTippingPoint end
+                    set = function(_, val) Addon.db.profile.wrathStarfireTippingPoint = val end,
+                    get = function(_) return Addon.db.profile.wrathStarfireTippingPoint end
+                },
+                talents = {
+                    name = "Talents",
+                    type = "header",
+                    order = 3
                 },
                 euphoria = {
                     name = "Euphoria",
                     desc = "Is Euphoria skilled?",
                     type = "toggle",
-                    set = function(info, val) Addon.db.profile.euphoria = val end,
-                    get = function(info) return Addon.db.profile.euphoria end
+                    order = 4,
+                    set = function(_, val) Addon.db.profile.euphoria = val end,
+                    get = function(_) return Addon.db.profile.euphoria end
                 }
             }
         },
         display = {
             name = "Display",
             type = "group",
+            order = 1,
             args = {
+                locked = {
+                    name = "Locked",
+                    desc = "Locks the suggestion frame",
+                    type = "toggle",
+                    order = 0,
+                    set = function(info, val) Addon:ToggleFrameLock(info, val) end,
+                    get = function(_) return Addon.db.profile.locked end
+                },
                 xPosition = {
                     name = "X position",
                     desc = "X position from the center.",
                     type = "range",
+                    order = 1,
                     min = -2000.0,
                     max = 2000.0,
                     softMin = -2000.0,
                     softMax = 2000.0,
                     step = 0.1,
-                    set = function(info, val)
+                    set = function(_, val)
                         Addon.db.profile.xPosition = val
-                        Addon.suggestFrame:SetPoint("CENTER", Addon.db.profile.xPosition, Addon.db.profile.yPosition)
+                        Addon:UpdateFramePosition()
                     end,
-                    get = function(info) return Addon.db.profile.xPosition end
+                    get = function(_) return Addon.db.profile.xPosition end
                 },
                 yPosition = {
                     name = "Y position",
                     desc = "Y position from the center.",
                     type = "range",
+                    order = 2,
                     min = -2000.0,
                     max = 2000.0,
                     softMin = -2000.0,
                     softMax = 2000.0,
                     step = 0.1,
-                    set = function(info, val)
+                    set = function(_, val)
                         Addon.db.profile.yPosition = val
-                        Addon.suggestFrame:SetPoint("CENTER", Addon.db.profile.xPosition, Addon.db.profile.yPosition)
+                        Addon:UpdateFramePosition()
                     end,
-                    get = function(info) return Addon.db.profile.yPosition end
+                    get = function(_) return Addon.db.profile.yPosition end
                 }
             }
         }
@@ -109,10 +131,13 @@ local defaults = {
         starfireWrathTippingPoint = 45,
         wrathStarfireTippingPoint = 35,
         xPosition = 0,
-        yPosition = 0
+        yPosition = 0,
+        locked = true
     }
 }
 
+
+-- Always called
 function Addon:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New("BalanceSpellSuggestDB", defaults, true)
     options.args.profile = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
@@ -121,6 +146,7 @@ function Addon:OnInitialize()
 end
 
 
+-- Called on login ?
 function Addon:OnEnable()
     -- setup frame
     if self.updateTimer == nil then
@@ -128,36 +154,115 @@ function Addon:OnEnable()
     end
 
     if self.suggestFrame == nil then
-        self.suggestFrame = CreateFrame("Frame", "BSP_Suggest", UIParent)
+        self.suggestFrame = CreateFrame("Frame", "BSP_Main", UIParent)
         self.suggestFrame:SetFrameStrata("BACKGROUND")
+        -- TODO: calculate size based on inner frame sizes
         self.suggestFrame:SetWidth(64)
         self.suggestFrame:SetHeight(64)
         self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
 
-        self.suggestTexture = self.suggestFrame:CreateTexture(nil, "BACKGROUND")
-        self.suggestTexture:SetTexture("Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Factions.blp")
-        self.suggestTexture:SetAllPoints(self.suggestFrame)
-        self.suggestFrame.texture = self.suggestTexture
-    end
+        -- create the dragging texture
+        local tex = self.suggestFrame:CreateTexture("ARTWORK")
+        tex:SetTexture(1.0, 0.5, 0)
+        tex:SetAlpha(0.5)
+        self.suggestFrame.draggingTexture = tex
+        if self.db.profile.locked then
+            self.suggestFrame.draggingTexture:ClearAllPoints()
+        else
+            self.suggestFrame.draggingTexture:SetAllPoints()
+            self.suggestFrame:Show()
+        end
 
-    print("BSP enabled")
+        self.nextSpellFrame = CreateFrame("Frame", "BSP_Next", self.suggestFrame)
+        self.nextSpellFrame:SetFrameStrata("BACKGROUND")
+        -- TODO: make size editable
+        self.nextSpellFrame:SetWidth(64)
+        self.nextSpellFrame:SetHeight(64)
+        self.nextSpellFrame:SetPoint("CENTER", 0, 0)
+
+        local suggestTexture = self.nextSpellFrame:CreateTexture(nil, "BACKGROUND")
+        self.nextSpellFrame.texture = suggestTexture
+    end
 end
 
+
+-- Called after a spec change to non-balance
 function Addon:OnDisable()
     -- teardown frame
     if self.suggestFrame ~= nil then
         self.suggestFrame:Hide()
-        self.suggestFrame = nil
     end
 
     if self.updateTimer ~= nil then
         self:CancelTimer(self.updateTimer)
+        self.updateTimer = nil
     end
-
-    print("BSP disabled")
 end
 
+
+-- Updates the position and the size of the frames
+function Addon:UpdateFramePosition()
+    self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
+end
+
+
+-- Toggles the frame lock of the suggestFrame
+function Addon:ToggleFrameLock(_, val)
+    self.db.profile.locked = val
+    if val then
+        self.suggestFrame:SetMovable(false)
+        self.suggestFrame:EnableMouse(false)
+        self.suggestFrame:SetScript("OnDragStart", function() end)
+        self.suggestFrame:SetScript("OnDragStop", function() end)
+        self.suggestFrame.draggingTexture:ClearAllPoints()
+        self.suggestFrame.draggingTexture:SetAlpha(0)
+        -- show the children
+        local frames = { self.suggestFrame:GetChildren() }
+        for _, frame in ipairs(frames) do
+            frame:Show()
+        end
+    else
+        self.suggestFrame:SetMovable(true)
+        self.suggestFrame:EnableMouse(true)
+        self.suggestFrame:RegisterForDrag("LeftButton")
+        self.suggestFrame:SetScript("OnDragStart", self.suggestFrame.StartMoving)
+        self.suggestFrame:SetScript("OnDragStop", function(self, button) Addon:StopMoving(self, button) end)
+        self.suggestFrame.draggingTexture:SetAllPoints()
+        self.suggestFrame.draggingTexture:SetAlpha(0.5)
+        -- hide the children
+        local frames = { self.suggestFrame:GetChildren() }
+        for _, frame in ipairs(frames) do
+            frame:Hide()
+        end
+    end
+end
+
+
+-- Called on drag stop from the suggestFrame
+function Addon:StopMoving(frame, _)
+    frame:StopMovingOrSizing()
+
+    -- get the coordinates for the offset from center
+    for pointnum = 1, frame:GetNumPoints() do
+        local point, _, _, x, y = frame:GetPoint(pointnum)
+        if point == "CENTER" then
+            self.db.profile.xPosition = x
+            self.db.profile.yPosition = y
+            break
+        end
+    end
+
+end
+
+
+-- Updates the suggestFrame visibility and the inner frames textures/strings
 function Addon:UpdateFrames()
+    -- drag/drop  mode
+    if not self.db.profile.locked then
+        self.suggestFrame:Show()
+        return
+    end
+
     -- we need a target
     if not UnitExists("target") then
         self.suggestFrame:Hide()
@@ -169,14 +274,21 @@ function Addon:UpdateFrames()
         self.suggestFrame:Hide()
         return
     end
+
+    -- and alive
+    if UnitIsDead("target") then
+        self.suggestFrame:Hide()
+        return
+    end
+
     self.suggestFrame:Show()
 
     local newTexturePath = self:GetNextSpell()
-    self.suggestTexture:SetTexture(newTexturePath)
-    self.suggestTexture:SetAllPoints(self.suggestFrame)
+    self.nextSpellFrame.texture:SetTexture(newTexturePath)
+    self.nextSpellFrame.texture:SetAllPoints(self.nextSpellFrame)
 end
 
--- return values
+-- spells and stuff
 local moonfirename,_,moonfire = GetSpellInfo(164812)
 local sunfirename,_,sunfire = GetSpellInfo(164815)
 local starsurgename,_,starsurge = GetSpellInfo(78674)
@@ -188,7 +300,7 @@ local moonkinformname,_,moonkinform = GetSpellInfo(24858)
 local lunarempowermentname = GetSpellInfo(164547)
 local solarempowermentname = GetSpellInfo(164545)
 
-
+-- find out which spell should be cast next
 function Addon:GetNextSpell()
     local _,_,_,mfC = UnitBuff("player", moonkinformname)
     if mfC == nil then
@@ -282,7 +394,6 @@ function Addon:GetNextSpell()
                 end
             end
         end
-
 
         if direction == "moon" then
             return starfire
