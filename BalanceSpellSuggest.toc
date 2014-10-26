@@ -1,10 +1,13 @@
 ## Interface: 60000
 ## Title: Balance Spell Suggest
 ## Author: envY (clemenZ9 on curse)
-## Version: 1.1
+## Version: v2
 ## SavedVariables: BalanceSpellSuggestDB
 ## OptionalDeps: Ace3
 
 embed.xml
+
+locale\enUS.lua
+locale\deDE.lua
 
 Core.lua

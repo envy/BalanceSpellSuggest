@@ -5,6 +5,8 @@ end
 
 BalanceSpellSuggest = LibStub("AceAddon-3.0"):NewAddon("BalanceSpellSuggest", "AceTimer-3.0")
 
+local L = LibStub("AceLocale-3.0"):GetLocale("BalanceSpellSuggest", true)
+
 BalanceSpellSuggest.suggestFrame = nil
 BalanceSpellSuggest.nextSpellFrame = nil
 BalanceSpellSuggest.updateTimer = nil
@@ -16,13 +18,13 @@ local options = {
     childGroups = "tab",
     args = {
         behavior = {
-            name = "Behavior",
+            name = L["Behavior"],
             type = "group",
             order = 0,
             args = {
                 dotRefreshPower = {
-                    name = "DoT refresh power",
-                    desc = "Check and remind me if a DoT needs to be refreshed if my eclipse power is below this value when goind Lunar -> Solar or Solar -> Lunar.",
+                    name = L["DoT refresh power"],
+                    desc = L["dotRefreshPowerDesc"],
                     type = "range",
                     order = 0,
                     min = 0,
@@ -34,8 +36,8 @@ local options = {
                     get = function(_) return BalanceSpellSuggest.db.profile.dotRefreshPower end
                 },
                 starfireWrathTippingPoint = {
-                    name = "Starfire -> Wrath tipping point",
-                    desc = "When going from lunar to solar, at which power start to suggest Wrath instead of Starfire while still in lunar.",
+                    name = L["Starfire -> Wrath tipping point"],
+                    desc = L["starfireWrathTippingPointDesc"],
                     type = "range",
                     order = 1,
                     min = 0,
@@ -47,8 +49,8 @@ local options = {
                     get = function(_) return BalanceSpellSuggest.db.profile.starfireWrathTippingPoint end
                 },
                 wrathStarfireTippingPoint = {
-                    name = "Wrath -> Starfire tipping point",
-                    desc = "When going from solar to lunar, at which power start to suggest Starfire instead of Wrath while still in solar.",
+                    name = L["Wrath -> Starfire tipping point"],
+                    desc = L["wrathStarfireTippingPointDesc"],
                     type = "range",
                     order = 2,
                     min = 0,
@@ -60,13 +62,13 @@ local options = {
                     get = function(_) return BalanceSpellSuggest.db.profile.wrathStarfireTippingPoint end
                 },
                 talents = {
-                    name = "Talents",
+                    name = L["Talents"],
                     type = "header",
                     order = 3
                 },
                 euphoria = {
-                    name = "Euphoria",
-                    desc = "Is Euphoria skilled?",
+                    name = L["Euphoria"],
+                    desc = L["Is Euphoria skilled?"],
                     type = "toggle",
                     order = 4,
                     set = function(_, val) BalanceSpellSuggest.db.profile.euphoria = val end,
@@ -75,21 +77,21 @@ local options = {
             }
         },
         display = {
-            name = "Display",
+            name = L["Display"],
             type = "group",
             order = 1,
             args = {
                 locked = {
-                    name = "Locked",
-                    desc = "Locks the suggestion frame",
+                    name = L["Locked"],
+                    desc = L["Locks the suggestion frame in place."],
                     type = "toggle",
                     order = 0,
                     set = function(info, val) BalanceSpellSuggest:ToggleFrameLock(info, val) end,
                     get = function(_) return BalanceSpellSuggest.db.profile.locked end
                 },
                 xPosition = {
-                    name = "X position",
-                    desc = "X position from the center.",
+                    name = L["X position"],
+                    desc = L["X position from the center."],
                     type = "range",
                     order = 1,
                     min = -2000.0,
@@ -104,8 +106,8 @@ local options = {
                     get = function(_) return BalanceSpellSuggest.db.profile.xPosition end
                 },
                 yPosition = {
-                    name = "Y position",
-                    desc = "Y position from the center.",
+                    name = L["Y position"],
+                    desc = L["Y position from the center."],
                     type = "range",
                     order = 2,
                     min = -2000.0,
