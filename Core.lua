@@ -3,15 +3,15 @@ if select(2, UnitClass("player")) ~= "DRUID" then
     return
 end
 
-Addon = LibStub("AceAddon-3.0"):NewAddon("BalanceSpellSuggest", "AceTimer-3.0")
+BalanceSpellSuggest = LibStub("AceAddon-3.0"):NewAddon("BalanceSpellSuggest", "AceTimer-3.0")
 
-Addon.suggestFrame = nil
-Addon.nextSpellFrame = nil
-Addon.updateTimer = nil
+BalanceSpellSuggest.suggestFrame = nil
+BalanceSpellSuggest.nextSpellFrame = nil
+BalanceSpellSuggest.updateTimer = nil
 
 local options = {
     name = "Balance Spell Suggest",
-    handler = Addon,
+    handler = BalanceSpellSuggest,
     type = 'group',
     childGroups = "tab",
     args = {
@@ -30,8 +30,8 @@ local options = {
                     softMin = 10,
                     softMax = 50,
                     step = 1,
-                    set = function(_, val) Addon.db.profile.dotRefreshPower = val end,
-                    get = function(_) return Addon.db.profile.dotRefreshPower end
+                    set = function(_, val) BalanceSpellSuggest.db.profile.dotRefreshPower = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.dotRefreshPower end
                 },
                 starfireWrathTippingPoint = {
                     name = "Starfire -> Wrath tipping point",
@@ -43,8 +43,8 @@ local options = {
                     softMin = 10,
                     softMax = 50,
                     step = 1,
-                    set = function(_, val) Addon.db.profile.starfireWrathTippingPoint = val end,
-                    get = function(_) return Addon.db.profile.starfireWrathTippingPoint end
+                    set = function(_, val) BalanceSpellSuggest.db.profile.starfireWrathTippingPoint = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.starfireWrathTippingPoint end
                 },
                 wrathStarfireTippingPoint = {
                     name = "Wrath -> Starfire tipping point",
@@ -56,8 +56,8 @@ local options = {
                     softMin = 10,
                     softMax = 50,
                     step = 1,
-                    set = function(_, val) Addon.db.profile.wrathStarfireTippingPoint = val end,
-                    get = function(_) return Addon.db.profile.wrathStarfireTippingPoint end
+                    set = function(_, val) BalanceSpellSuggest.db.profile.wrathStarfireTippingPoint = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.wrathStarfireTippingPoint end
                 },
                 talents = {
                     name = "Talents",
@@ -69,8 +69,8 @@ local options = {
                     desc = "Is Euphoria skilled?",
                     type = "toggle",
                     order = 4,
-                    set = function(_, val) Addon.db.profile.euphoria = val end,
-                    get = function(_) return Addon.db.profile.euphoria end
+                    set = function(_, val) BalanceSpellSuggest.db.profile.euphoria = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.euphoria end
                 }
             }
         },
@@ -84,8 +84,8 @@ local options = {
                     desc = "Locks the suggestion frame",
                     type = "toggle",
                     order = 0,
-                    set = function(info, val) Addon:ToggleFrameLock(info, val) end,
-                    get = function(_) return Addon.db.profile.locked end
+                    set = function(info, val) BalanceSpellSuggest:ToggleFrameLock(info, val) end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.locked end
                 },
                 xPosition = {
                     name = "X position",
@@ -98,10 +98,10 @@ local options = {
                     softMax = 2000.0,
                     step = 0.1,
                     set = function(_, val)
-                        Addon.db.profile.xPosition = val
-                        Addon:UpdateFramePosition()
+                        BalanceSpellSuggest.db.profile.xPosition = val
+                        BalanceSpellSuggest:UpdateFramePosition()
                     end,
-                    get = function(_) return Addon.db.profile.xPosition end
+                    get = function(_) return BalanceSpellSuggest.db.profile.xPosition end
                 },
                 yPosition = {
                     name = "Y position",
@@ -114,10 +114,10 @@ local options = {
                     softMax = 2000.0,
                     step = 0.1,
                     set = function(_, val)
-                        Addon.db.profile.yPosition = val
-                        Addon:UpdateFramePosition()
+                        BalanceSpellSuggest.db.profile.yPosition = val
+                        BalanceSpellSuggest:UpdateFramePosition()
                     end,
-                    get = function(_) return Addon.db.profile.yPosition end
+                    get = function(_) return BalanceSpellSuggest.db.profile.yPosition end
                 }
             }
         }
@@ -138,7 +138,7 @@ local defaults = {
 
 
 -- Always called
-function Addon:OnInitialize()
+function BalanceSpellSuggest:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New("BalanceSpellSuggestDB", defaults, true)
     options.args.profile = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
     LibStub("AceConfig-3.0"):RegisterOptionsTable("BalanceSpellSuggest", options)
@@ -147,7 +147,7 @@ end
 
 
 -- Called on login ?
-function Addon:OnEnable()
+function BalanceSpellSuggest:OnEnable()
     -- setup frame
     if self.updateTimer == nil then
         self.updateTimer = self:ScheduleRepeatingTimer("UpdateFrames", 0.1)
@@ -187,7 +187,7 @@ end
 
 
 -- Called after a spec change to non-balance
-function Addon:OnDisable()
+function BalanceSpellSuggest:OnDisable()
     -- teardown frame
     if self.suggestFrame ~= nil then
         self.suggestFrame:Hide()
@@ -201,13 +201,13 @@ end
 
 
 -- Updates the position and the size of the frames
-function Addon:UpdateFramePosition()
+function BalanceSpellSuggest:UpdateFramePosition()
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
 end
 
 
 -- Toggles the frame lock of the suggestFrame
-function Addon:ToggleFrameLock(_, val)
+function BalanceSpellSuggest:ToggleFrameLock(_, val)
     self.db.profile.locked = val
     if val then
         self.suggestFrame:SetMovable(false)
@@ -226,7 +226,7 @@ function Addon:ToggleFrameLock(_, val)
         self.suggestFrame:EnableMouse(true)
         self.suggestFrame:RegisterForDrag("LeftButton")
         self.suggestFrame:SetScript("OnDragStart", self.suggestFrame.StartMoving)
-        self.suggestFrame:SetScript("OnDragStop", function(self, button) Addon:StopMoving(self, button) end)
+        self.suggestFrame:SetScript("OnDragStop", function(self, button) BalanceSpellSuggest:StopMoving(self, button) end)
         self.suggestFrame.draggingTexture:SetAllPoints()
         self.suggestFrame.draggingTexture:SetAlpha(0.5)
         -- hide the children
@@ -239,7 +239,7 @@ end
 
 
 -- Called on drag stop from the suggestFrame
-function Addon:StopMoving(frame, _)
+function BalanceSpellSuggest:StopMoving(frame, _)
     frame:StopMovingOrSizing()
 
     -- get the coordinates for the offset from center
@@ -256,7 +256,7 @@ end
 
 
 -- Updates the suggestFrame visibility and the inner frames textures/strings
-function Addon:UpdateFrames()
+function BalanceSpellSuggest:UpdateFrames()
     -- drag/drop  mode
     if not self.db.profile.locked then
         self.suggestFrame:Show()
@@ -301,7 +301,7 @@ local lunarempowermentname = GetSpellInfo(164547)
 local solarempowermentname = GetSpellInfo(164545)
 
 -- find out which spell should be cast next
-function Addon:GetNextSpell()
+function BalanceSpellSuggest:GetNextSpell()
     local _,_,_,mfC = UnitBuff("player", moonkinformname)
     if mfC == nil then
         return moonkinform
