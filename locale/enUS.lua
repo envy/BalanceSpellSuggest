@@ -19,4 +19,8 @@ if L then
     L["X position from the center."] = true
     L["Y position"] = true
     L["Y position from the center."] = true
+    L["DoT Timer"] = true
+    L["Enable timers"] = true
+    L["Font size"] = true
+    L["Highlight font size"] = true
 end

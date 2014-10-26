@@ -9,6 +9,8 @@ local L = LibStub("AceLocale-3.0"):GetLocale("BalanceSpellSuggest", true)
 
 BalanceSpellSuggest.suggestFrame = nil
 BalanceSpellSuggest.nextSpellFrame = nil
+BalanceSpellSuggest.moonfireFrame = nil
+BalanceSpellSuggest.sunfireFrame = nil
 BalanceSpellSuggest.updateTimer = nil
 
 local options = {
@@ -120,6 +122,51 @@ local options = {
                         BalanceSpellSuggest:UpdateFramePosition()
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.yPosition end
+                },
+                timers = {
+                    name = L["DoT Timer"],
+                    type = "header",
+                    order = 3,
+                },
+                timersToggle = {
+                    name = L["Enable timers"],
+                    type = "toggle",
+                    order = 4,
+                    set = function(_, val)
+                        BalanceSpellSuggest.db.profile.timers = val
+                        BalanceSpellSuggest:UpdateFramePosition()
+                    end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.timers end
+                },
+                normalFontSize = {
+                    name = L["Font size"],
+                    type = "range",
+                    order = 5,
+                    min = 1,
+                    max = 100,
+                    softMin = 10,
+                    softMax = 48,
+                    step = 1,
+                    set = function(_, val)
+                        BalanceSpellSuggest.db.profile.normalfontsize = val
+                        BalanceSpellSuggest:UpdateFramePosition()
+                    end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.normalfontsize end
+                },
+                highlightFontSize = {
+                    name = L["Highlight font size"],
+                    type = "range",
+                    order = 6,
+                    min = 1,
+                    max = 100,
+                    softMin = 10,
+                    softMax = 48,
+                    step = 1,
+                    set = function(_, val)
+                        BalanceSpellSuggest.db.profile.highlightfontsize = val
+                        BalanceSpellSuggest:UpdateFramePosition()
+                    end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.highlightfontsize end
                 }
             }
         }
@@ -132,11 +179,29 @@ local defaults = {
         dotRefreshPower = 40,
         starfireWrathTippingPoint = 45,
         wrathStarfireTippingPoint = 35,
+        dotRefreshTime = 7,
         xPosition = 0,
         yPosition = 0,
-        locked = true
+        locked = true,
+        timers = true,
+        normalfontsize = 25,
+        highlightfontsize = 32,
+        font = "Fonts\\FRIZQT__.TTF",
     }
 }
+
+
+-- spells and stuff
+local moonfirename,_,moonfire = GetSpellInfo(164812)
+local sunfirename,_,sunfire = GetSpellInfo(164815)
+local starsurgename,_,starsurge = GetSpellInfo(78674)
+local starfirename,_,starfire =  GetSpellInfo(2912)
+local wrathname,_,wrath = GetSpellInfo(5176)
+local celestialalignmentname,_,celestialalignment = GetSpellInfo(112071)
+local moonkinformname,_,moonkinform = GetSpellInfo(24858)
+
+local lunarempowermentname = GetSpellInfo(164547)
+local solarempowermentname = GetSpellInfo(164545)
 
 
 -- Always called
@@ -197,35 +262,40 @@ end
 -- Updates the position and the size of the frames
 function BalanceSpellSuggest:UpdateFramePosition()
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
+
+    if self.db.profile.timers then
+        self.suggestFrame:SetWidth(64+64+64)
+        self.moonfireFrame:Show()
+        self.sunfireFrame:Show()
+    else
+        self.suggestFrame:SetWidth(64)
+        self.moonfireFrame:Hide()
+        self.sunfireFrame:Hide()
+    end
+
 end
 
 
 -- Toggles the frame lock of the suggestFrame
 function BalanceSpellSuggest:ToggleFrameLock(_, val)
     self.db.profile.locked = val
-    if val then
+    if self.db.profile.locked then
         self.suggestFrame:SetMovable(false)
         self.suggestFrame:EnableMouse(false)
         self.suggestFrame:SetScript("OnDragStart", function() end)
         self.suggestFrame:SetScript("OnDragStop", function() end)
-        self.suggestFrame.draggingTexture:ClearAllPoints()
-        self.suggestFrame.draggingTexture:SetAlpha(0)
-        -- show the children
         local frames = { self.suggestFrame:GetChildren() }
         for _, frame in ipairs(frames) do
-            frame:Show()
+            frame.texture:SetVertexColor(1.0, 1.0, 1.0, 1.0)
         end
     else
         self.suggestFrame:SetMovable(true)
         self.suggestFrame:EnableMouse(true)
         self.suggestFrame:SetScript("OnDragStart", self.suggestFrame.StartMoving)
         self.suggestFrame:SetScript("OnDragStop", function(self, button) BalanceSpellSuggest:StopMoving(self, button) end)
-        self.suggestFrame.draggingTexture:SetAllPoints()
-        self.suggestFrame.draggingTexture:SetAlpha(0.5)
-        -- hide the children
         local frames = { self.suggestFrame:GetChildren() }
         for _, frame in ipairs(frames) do
-            frame:Hide()
+            frame.texture:SetVertexColor(1.0, 1.0, 1.0, 0.5)
         end
     end
 end
@@ -237,37 +307,63 @@ function BalanceSpellSuggest:SetUpFrames()
     self.suggestFrame = CreateFrame("Frame", "BSP_Main", UIParent)
     self.suggestFrame:SetFrameStrata("BACKGROUND")
     -- TODO: calculate size based on inner frame sizes
-    self.suggestFrame:SetWidth(64)
+    self.suggestFrame:SetWidth(64+64+64)
     self.suggestFrame:SetHeight(64)
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
     self.suggestFrame:RegisterForDrag("LeftButton")
 
-    -- create the dragging texture
-    local tex = self.suggestFrame:CreateTexture("ARTWORK")
-    tex:SetTexture(1.0, 0.5, 0)
-    tex:SetAlpha(0.5)
-    self.suggestFrame.draggingTexture = tex
     if self.db.profile.locked then
         self.suggestFrame:SetMovable(false)
         self.suggestFrame:EnableMouse(false)
-        self.suggestFrame.draggingTexture:ClearAllPoints()
     else
         self.suggestFrame:SetMovable(true)
         self.suggestFrame:EnableMouse(true)
-        self.suggestFrame.draggingTexture:SetAllPoints()
         self.suggestFrame:Show()
     end
 
     -- the frame for the next spell texture
     self.nextSpellFrame = CreateFrame("Frame", "BSP_Next", self.suggestFrame)
     self.nextSpellFrame:SetFrameStrata("BACKGROUND")
-    -- TODO: make size editable
+    -- TODO: make size adjustable
     self.nextSpellFrame:SetWidth(64)
     self.nextSpellFrame:SetHeight(64)
     self.nextSpellFrame:SetPoint("CENTER", 0, 0)
-
-    local suggestTexture = self.nextSpellFrame:CreateTexture(nil, "BACKGROUND")
+    local suggestTexture = self.nextSpellFrame:CreateTexture(nil, "ARTWORK")
     self.nextSpellFrame.texture = suggestTexture
+
+    -- the frame for the moonfire timer
+    self.moonfireFrame = CreateFrame("Frame", "BSP_Moonfire", self.suggestFrame)
+    self.moonfireFrame:SetFrameStrata("BACKGROUND")
+    -- TODO: make size adjustable
+    self.moonfireFrame:SetWidth(64)
+    self.moonfireFrame:SetHeight(64)
+    self.moonfireFrame:SetPoint("CENTER", -64, 0)
+    local moonfireTexture = self.moonfireFrame:CreateTexture(nil, "ARTWORK")
+    self.moonfireFrame.texture = moonfireTexture
+    self.moonfireFrame.texture:SetTexture(moonfire)
+    self.moonfireFrame.texture:SetAllPoints()
+    local moonfireString = self.moonfireFrame:CreateFontString(nil, "LOW")
+    self.moonfireFrame.text = moonfireString
+    self.moonfireFrame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
+    self.moonfireFrame.text:SetTextColor(1, 1, 1, 1)
+    self.moonfireFrame.text:SetAllPoints()
+
+    -- the frame for the sunfire timer
+    self.sunfireFrame = CreateFrame("Frame", "BSP_Sunfire", self.suggestFrame)
+    self.sunfireFrame:SetFrameStrata("BACKGROUND")
+    -- TODO: make size adjustable
+    self.sunfireFrame:SetWidth(64)
+    self.sunfireFrame:SetHeight(64)
+    self.sunfireFrame:SetPoint("CENTER", 64, 0)
+    local sunfireTexture = self.sunfireFrame:CreateTexture(nil, "ARTWORK")
+    self.sunfireFrame.texture = sunfireTexture
+    self.sunfireFrame.texture:SetTexture(sunfire)
+    self.sunfireFrame.texture:SetAllPoints()
+    local sunfireString = self.sunfireFrame:CreateFontString(nil, "LOW")
+    self.sunfireFrame.text = sunfireString
+    self.sunfireFrame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
+    self.sunfireFrame.text:SetTextColor(1, 1, 1, 1)
+    self.sunfireFrame.text:SetAllPoints()
 end
 
 
@@ -316,31 +412,58 @@ function BalanceSpellSuggest:UpdateFrames()
 
     self.suggestFrame:Show()
 
-    local newTexturePath = self:GetNextSpell()
+    local time = GetTime()
+
+    local newTexturePath = self:GetNextSpell(time)
     self.nextSpellFrame.texture:SetTexture(newTexturePath)
     self.nextSpellFrame.texture:SetAllPoints(self.nextSpellFrame)
+
+    local targetMoonfire = 0 -- duration, 0 if not applied
+    local targetSunfire = 0  -- duration, 0 if not applied
+    local _,_,_,_,_,_,mET,mC = UnitAura("target", moonfirename, nil, "PLAYER|HARMFUL") -- Moonfire
+    if mET and mC == "player" then
+        targetMoonfire = mET - time
+    end
+    local _,_,_,_,_,_,sET,sC = UnitAura("target", sunfirename, nil, "PLAYER|HARMFUL") -- Sunfire
+    if sET and sC == "player" then
+        targetSunfire = sET - time
+    end
+
+    self:TimerFrameUpdate(self.moonfireFrame, targetMoonfire)
+    self:TimerFrameUpdate(self.sunfireFrame, targetSunfire)
+
 end
 
--- spells and stuff
-local moonfirename,_,moonfire = GetSpellInfo(164812)
-local sunfirename,_,sunfire = GetSpellInfo(164815)
-local starsurgename,_,starsurge = GetSpellInfo(78674)
-local starfirename,_,starfire =  GetSpellInfo(2912)
-local wrathname,_,wrath = GetSpellInfo(5176)
-local celestialalignmentname,_,celestialalignment = GetSpellInfo(112071)
-local moonkinformname,_,moonkinform = GetSpellInfo(24858)
 
-local lunarempowermentname = GetSpellInfo(164547)
-local solarempowermentname = GetSpellInfo(164545)
+function BalanceSpellSuggest:TimerFrameUpdate(frame, duration)
+    if duration == 0 then
+        frame.texture:SetVertexColor(1.0, 0, 0)
+        frame.text:SetText("")
+    else
+        frame.texture:SetVertexColor(1.0, 1.0, 1.0)
+        if duration <= self.db.profile.dotRefreshTime then
+            -- switch to highlight size
+            frame.text:SetFont(self.db.profile.font, self.db.profile.highlightfontsize, "OUTLINE, MONOCHROME")
+            frame.text:SetAllPoints()
+            frame.text:SetTextColor(1.0, 0, 0, 1.0)
+            frame.text:SetText(string.format("%.1f", duration))
+        else
+            frame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
+            frame.text:SetAllPoints()
+            frame.text:SetTextColor(1.0, 1.0, 1.0, 1.0)
+            frame.text:SetText(string.format("%.0f", duration))
+        end
+    end
+end
+
 
 -- find out which spell should be cast next
-function BalanceSpellSuggest:GetNextSpell()
+function BalanceSpellSuggest:GetNextSpell(time)
     local _,_,_,mfC = UnitBuff("player", moonkinformname)
     if mfC == nil then
         return moonkinform
     end
 
-    local time = GetTime()
     local power = UnitPower("player", 8)
     local inLunar = false
     local inSolar = false
@@ -400,9 +523,9 @@ function BalanceSpellSuggest:GetNextSpell()
     -- priority logic here
 
     if inLunar then
-        if targetMoonfire < 7
+        if targetMoonfire < self.db.profile.dotRefreshTime
         or (direction == "sun" and power <= self.db.profile.dotRefreshPower and targetMoonfire <= dotDur)
-        or (inCelestialAlignment and targetSunfire < 7)
+        or (inCelestialAlignment and targetSunfire < self.db.profile.dotRefreshTime)
         or (inCelestialAlignment and celestialalignmentDuration < 4 and targetSunfire < dotDur) then
             return moonfire
         end
@@ -440,7 +563,7 @@ function BalanceSpellSuggest:GetNextSpell()
             end
         end
     elseif inSolar then
-        if targetSunfire < 7
+        if targetSunfire < self.db.profile.dotRefreshTime
         or (direction == "sun" and power > 0 and targetSunfire < 10)
         or (direction == "moon" and power <= self.db.profile.dotRefreshPower and targetSunfire <= dotDur) then
             return sunfire
