@@ -6,6 +6,7 @@ end
 BalanceSpellSuggest = LibStub("AceAddon-3.0"):NewAddon("BalanceSpellSuggest", "AceTimer-3.0", "AceEvent-3.0")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("BalanceSpellSuggest", true)
+local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 
 BalanceSpellSuggest.suggestFrame = nil
 BalanceSpellSuggest.nextSpellFrame = nil
@@ -149,8 +150,7 @@ local options = {
                     step = 1,
                     set = function(_, val)
                         BalanceSpellSuggest.db.profile.normalfontsize = val
-                        BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.moonfireFrame)
-                        BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.sunfireFrame)
+                        BalanceSpellSuggest:RecreateAllFonts()
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.normalfontsize end
                 },
@@ -165,10 +165,20 @@ local options = {
                     step = 1,
                     set = function(_, val)
                         BalanceSpellSuggest.db.profile.highlightfontsize = val
-                        BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.moonfireFrame)
-                        BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.sunfireFrame)
+                        BalanceSpellSuggest:RecreateAllFonts()
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.highlightfontsize end
+                },
+                font = {
+                    name = L["Font"],
+                    type = "select",
+                    dialogControl = "LSM30_Font",
+                    values = AceGUIWidgetLSMlists.font,
+                    set = function(_, val)
+                        BalanceSpellSuggest.db.profile.font = val
+                        BalanceSpellSuggest:RecreateAllFonts()
+                    end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.font  end
                 }
             }
         }
@@ -187,7 +197,8 @@ local defaults = {
         timers = true,
         normalfontsize = 25,
         highlightfontsize = 32,
-        font = "Fonts\\FRIZQT__.TTF",
+        font = "Friz Quadrata TT",
+        fontoptions = "OUTLINE",
     }
 }
 
@@ -215,9 +226,9 @@ function BalanceSpellSuggest:OnInitialize()
 
     self:SetUpFrames()
 
-    self.db.RegisterCallback(self, "OnProfileChanged", "UpdateFramePosition")
-    self.db.RegisterCallback(self, "OnProfileCopied", "UpdateFramePosition")
-    self.db.RegisterCallback(self, "OnProfileReset", "UpdateFramePosition")
+    self.db.RegisterCallback(self, "OnProfileChanged", "ProfileChanged")
+    self.db.RegisterCallback(self, "OnProfileCopied", "ProfileChanged")
+    self.db.RegisterCallback(self, "OnProfileReset", "ProfileChanged")
 end
 
 
@@ -264,12 +275,24 @@ function BalanceSpellSuggest:DisableTimer()
 end
 
 
+function BalanceSpellSuggest:ProfileChanged()
+    self:UpdateFramePosition()
+    self:RecreateAllFonts()
+end
+
+
+function BalanceSpellSuggest:RecreateAllFonts()
+    BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.moonfireFrame)
+    BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.sunfireFrame)
+end
+
+
 -- Updates the position and the size of the frames
 function BalanceSpellSuggest:UpdateFramePosition()
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
 
     if self.db.profile.timers then
-        self.suggestFrame:SetWidth(64+64+64)
+        self.suggestFrame:SetWidth(64+128)
         self.moonfireFrame:Show()
         self.sunfireFrame:Show()
     else
@@ -309,7 +332,7 @@ end
 -- Set up all needed frames
 function BalanceSpellSuggest:SetUpFrames()
     -- the main frame hosting all other frames
-    self.suggestFrame = CreateFrame("Frame", "BSP_Main", UIParent)
+    self.suggestFrame = CreateFrame("Frame", "BSS_Main", UIParent)
     self.suggestFrame:SetFrameStrata("BACKGROUND")
     -- TODO: calculate size based on inner frame sizes
     if self.db.profile.timers then
@@ -331,7 +354,7 @@ function BalanceSpellSuggest:SetUpFrames()
     end
 
     -- the frame for the next spell texture
-    self.nextSpellFrame = CreateFrame("Frame", "BSP_Next", self.suggestFrame)
+    self.nextSpellFrame = CreateFrame("Frame", "BSS_Next", self.suggestFrame)
     self.nextSpellFrame:SetFrameStrata("BACKGROUND")
     -- TODO: make size adjustable
     self.nextSpellFrame:SetWidth(64)
@@ -341,10 +364,10 @@ function BalanceSpellSuggest:SetUpFrames()
     self.nextSpellFrame.texture = suggestTexture
 
     -- the frame for the moonfire timer
-    self.moonfireFrame = self:CreateTimerFrame("BSP_Moonfire", moonfire, -64, 0)
+    self.moonfireFrame = self:CreateTimerFrame("BSS_Moonfire", moonfire, -64, 0)
 
     -- the frame for the sunfire timer
-    self.sunfireFrame = self:CreateTimerFrame("BSP_Sunfire", sunfire, 64, 0)
+    self.sunfireFrame = self:CreateTimerFrame("BSS_Sunfire", sunfire, 64, 0)
 end
 
 
@@ -360,12 +383,12 @@ function BalanceSpellSuggest:CreateTimerFrame(name, texturePath, xOfs, yOfs)
     frame.texture:SetTexture(texturePath)
     frame.texture:SetAllPoints()
     frame.text = frame:CreateFontString(nil, "LOW")
-    frame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
+    frame.text:SetFont(LSM:Fetch(LSM.MediaType.FONT, self.db.profile.font), self.db.profile.normalfontsize, self.db.profile.fontoptions)
     frame.text:SetTextColor(1, 1, 1, 1)
     frame.text:SetAllPoints()
     frame.text:SetShown(false)
     frame.highlightText = frame:CreateFontString(nil, "LOW")
-    frame.highlightText:SetFont(self.db.profile.font, self.db.profile.highlightfontsize, "OUTLINE, MONOCHROME")
+    frame.highlightText:SetFont(LSM:Fetch(LSM.MediaType.FONT, self.db.profile.font), self.db.profile.highlightfontsize, self.db.profile.fontoptions)
     frame.highlightText:SetTextColor(1, 0, 0, 1)
     frame.highlightText:SetAllPoints()
     frame.highlightText:SetShown(false)
@@ -377,13 +400,13 @@ end
 function BalanceSpellSuggest:RecreateFonts(frame)
     local oldtext = frame.text
     frame.text = frame:CreateFontString(nil, "LOW")
-    frame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
+    frame.text:SetFont(LSM:Fetch(LSM.MediaType.FONT, self.db.profile.font), self.db.profile.normalfontsize, self.db.profile.fontoptions)
     frame.text:SetTextColor(1, 1, 1, 1)
     frame.text:SetAllPoints()
     oldtext:SetShown(false)
     oldtext = frame.highlightText
     frame.highlightText = frame:CreateFontString(nil, "LOW")
-    frame.highlightText:SetFont(self.db.profile.font, self.db.profile.highlightfontsize, "OUTLINE, MONOCHROME")
+    frame.highlightText:SetFont(LSM:Fetch(LSM.MediaType.FONT, self.db.profile.font), self.db.profile.highlightfontsize, self.db.profile.fontoptions)
     frame.highlightText:SetTextColor(1, 0, 0, 1)
     frame.highlightText:SetAllPoints()
     oldtext:SetShown(false)
@@ -459,7 +482,7 @@ end
 
 
 function BalanceSpellSuggest:TimerFrameUpdate(frame, duration)
-    if duration == 0 then
+    if duration <= 0 then
         frame.texture:SetVertexColor(1.0, 0, 0)
         frame.text:SetShown(false)
         frame.highlightText:SetShown(false)

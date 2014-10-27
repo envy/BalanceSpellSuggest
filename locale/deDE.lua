@@ -21,4 +21,9 @@ if L then
     L["X position from the center."] = "X Position von der Bildschirmmitte aus"
     L["Y position"] = "Y Position"
     L["Y position from the center."] = "Y Position von der Bildschirmmitte aus"
+    L["DoT Timer"] = "DoT Timer"
+    L["Enable timers"] = "Timer aktivieren"
+    L["Font size"] = "Schriftgröße"
+    L["Highlight font size"] = "Warn Schtiftgröße"
+    L["Font"] = "Schriftart"
 end

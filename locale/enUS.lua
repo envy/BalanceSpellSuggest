@@ -25,4 +25,5 @@ if L then
     L["Enable timers"] = true
     L["Font size"] = true
     L["Highlight font size"] = true
+    L["Font"] = true
 end
