@@ -3,9 +3,9 @@
 ## Author: envY (clemenZ9 on curse)
 ## Version: v2
 ## SavedVariables: BalanceSpellSuggestDB
-## OptionalDeps: Ace3
+## OptionalDeps: Ace3, LibSharedMedia-3.0
 
-embed.xml
+embeds.xml
 
 locale\enUS.lua
 locale\deDE.lua
