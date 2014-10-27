@@ -145,11 +145,12 @@ local options = {
                     min = 1,
                     max = 100,
                     softMin = 10,
-                    softMax = 48,
+                    softMax = 100,
                     step = 1,
                     set = function(_, val)
                         BalanceSpellSuggest.db.profile.normalfontsize = val
-                        BalanceSpellSuggest:UpdateFramePosition()
+                        BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.moonfireFrame)
+                        BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.sunfireFrame)
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.normalfontsize end
                 },
@@ -160,11 +161,12 @@ local options = {
                     min = 1,
                     max = 100,
                     softMin = 10,
-                    softMax = 48,
+                    softMax = 100,
                     step = 1,
                     set = function(_, val)
                         BalanceSpellSuggest.db.profile.highlightfontsize = val
-                        BalanceSpellSuggest:UpdateFramePosition()
+                        BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.moonfireFrame)
+                        BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.sunfireFrame)
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.highlightfontsize end
                 }
@@ -310,7 +312,11 @@ function BalanceSpellSuggest:SetUpFrames()
     self.suggestFrame = CreateFrame("Frame", "BSP_Main", UIParent)
     self.suggestFrame:SetFrameStrata("BACKGROUND")
     -- TODO: calculate size based on inner frame sizes
-    self.suggestFrame:SetWidth(64+128)
+    if self.db.profile.timers then
+        self.suggestFrame:SetWidth(64+128)
+    else
+        self.suggestFrame:SetWidth(64)
+    end
     self.suggestFrame:SetHeight(64)
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
     self.suggestFrame:RegisterForDrag("LeftButton")
@@ -335,38 +341,52 @@ function BalanceSpellSuggest:SetUpFrames()
     self.nextSpellFrame.texture = suggestTexture
 
     -- the frame for the moonfire timer
-    self.moonfireFrame = CreateFrame("Frame", "BSP_Moonfire", self.suggestFrame)
-    self.moonfireFrame:SetFrameStrata("BACKGROUND")
-    -- TODO: make size adjustable
-    self.moonfireFrame:SetWidth(64)
-    self.moonfireFrame:SetHeight(64)
-    self.moonfireFrame:SetPoint("CENTER", -64, 0)
-    local moonfireTexture = self.moonfireFrame:CreateTexture(nil, "ARTWORK")
-    self.moonfireFrame.texture = moonfireTexture
-    self.moonfireFrame.texture:SetTexture(moonfire)
-    self.moonfireFrame.texture:SetAllPoints()
-    local moonfireString = self.moonfireFrame:CreateFontString(nil, "LOW")
-    self.moonfireFrame.text = moonfireString
-    self.moonfireFrame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
-    self.moonfireFrame.text:SetTextColor(1, 1, 1, 1)
-    self.moonfireFrame.text:SetAllPoints()
+    self.moonfireFrame = self:CreateTimerFrame("BSP_Moonfire", moonfire, -64, 0)
 
     -- the frame for the sunfire timer
-    self.sunfireFrame = CreateFrame("Frame", "BSP_Sunfire", self.suggestFrame)
-    self.sunfireFrame:SetFrameStrata("BACKGROUND")
+    self.sunfireFrame = self:CreateTimerFrame("BSP_Sunfire", sunfire, 64, 0)
+end
+
+
+-- Creates a timer frame
+function BalanceSpellSuggest:CreateTimerFrame(name, texturePath, xOfs, yOfs)
+    local frame  = CreateFrame("Frame", name, self.suggestFrame)
+    frame:SetFrameStrata("BACKGROUND")
     -- TODO: make size adjustable
-    self.sunfireFrame:SetWidth(64)
-    self.sunfireFrame:SetHeight(64)
-    self.sunfireFrame:SetPoint("CENTER", 64, 0)
-    local sunfireTexture = self.sunfireFrame:CreateTexture(nil, "ARTWORK")
-    self.sunfireFrame.texture = sunfireTexture
-    self.sunfireFrame.texture:SetTexture(sunfire)
-    self.sunfireFrame.texture:SetAllPoints()
-    local sunfireString = self.sunfireFrame:CreateFontString(nil, "LOW")
-    self.sunfireFrame.text = sunfireString
-    self.sunfireFrame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
-    self.sunfireFrame.text:SetTextColor(1, 1, 1, 1)
-    self.sunfireFrame.text:SetAllPoints()
+    frame:SetWidth(64)
+    frame:SetHeight(64)
+    frame:SetPoint("CENTER", xOfs, yOfs)
+    frame.texture = frame:CreateTexture(nil, "ARTWORK")
+    frame.texture:SetTexture(texturePath)
+    frame.texture:SetAllPoints()
+    frame.text = frame:CreateFontString(nil, "LOW")
+    frame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
+    frame.text:SetTextColor(1, 1, 1, 1)
+    frame.text:SetAllPoints()
+    frame.text:SetShown(false)
+    frame.highlightText = frame:CreateFontString(nil, "LOW")
+    frame.highlightText:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
+    frame.highlightText:SetTextColor(1, 1, 1, 1)
+    frame.highlightText:SetAllPoints()
+    frame.highlightText:SetShown(false)
+    return frame
+end
+
+
+-- Recreates the normal and highlight fonts for a frame
+function BalanceSpellSuggest:RecreateFonts(frame)
+    local oldtext = frame.text
+    frame.text = frame:CreateFontString(nil, "LOW")
+    frame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
+    frame.text:SetTextColor(1, 1, 1, 1)
+    frame.text:SetAllPoints()
+    oldtext:SetShown(false)
+    oldtext = frame.highlightText
+    frame.highlightText = frame:CreateFontString(nil, "LOW")
+    frame.highlightText:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
+    frame.highlightText:SetTextColor(1, 0, 0, 1)
+    frame.highlightText:SetAllPoints()
+    oldtext:SetShown(false)
 end
 
 
@@ -441,19 +461,18 @@ end
 function BalanceSpellSuggest:TimerFrameUpdate(frame, duration)
     if duration == 0 then
         frame.texture:SetVertexColor(1.0, 0, 0)
-        frame.text:SetText("")
+        frame.text:SetShown(false)
+        frame.highlightText:SetShown(false)
     else
         frame.texture:SetVertexColor(1.0, 1.0, 1.0)
         if duration <= self.db.profile.dotRefreshTime then
             -- switch to highlight size
-            frame.text:SetFont(self.db.profile.font, self.db.profile.highlightfontsize, "OUTLINE, MONOCHROME")
-            frame.text:SetAllPoints()
-            frame.text:SetTextColor(1.0, 0, 0, 1.0)
-            frame.text:SetText(string.format("%.1f", duration))
+            frame.text:SetShown(false)
+            frame.highlightText:SetShown(true)
+            frame.highlightText:SetText(string.format("%.1f", duration))
         else
-            frame.text:SetFont(self.db.profile.font, self.db.profile.normalfontsize, "OUTLINE, MONOCHROME")
-            frame.text:SetAllPoints()
-            frame.text:SetTextColor(1.0, 1.0, 1.0, 1.0)
+            frame.text:SetShown(true)
+            frame.highlightText:SetShown(false)
             frame.text:SetText(string.format("%.0f", duration))
         end
     end
