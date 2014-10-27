@@ -4,6 +4,8 @@ if L then
     L["Behavior"] = "Verhalten"
     L["DoT refresh power"] = "DoT Erneuerungsenergie"
     --L["dotRefreshPowerDesc"] = "Check and remind me if a DoT needs to be refreshed if my eclipse power is below this value when goind Lunar -> Solar or Solar -> Lunar."
+    L["DoT refresh time"] = "DoT Erneuerungszeit"
+    L["dotRefreshTimeDesc"] = "Die maximal verbleibene Zeit der DoTs bevor an das Erneuern erinnert werden soll."
     L["Starfire -> Wrath tipping point"] = "Sternenfeuer -> Zorn Umschlagpunkt"
     --L["starfireWrathTippingPointDesc"] = "When going from lunar to solar, at which power start to suggest Wrath instead of Starfire while still in lunar."
     L["Wrath -> Starfire tipping point"] = "Zorn -> Sternenfeuer Umschlagpunkt"

@@ -37,6 +37,19 @@ local options = {
                     set = function(_, val) BalanceSpellSuggest.db.profile.dotRefreshPower = val end,
                     get = function(_) return BalanceSpellSuggest.db.profile.dotRefreshPower end
                 },
+                dotRefreshTime = {
+                    name = L["DoT refresh time"],
+                    desc = L["dotRefreshTimeDesc"],
+                    type = "range",
+                    order = 0,
+                    min = 0,
+                    max = 40,
+                    softMin = 1,
+                    softMax = 20,
+                    step = 1,
+                    set = function(_, val) BalanceSpellSuggest.db.profile.dotRefreshTime = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.dotRefreshTime end
+                },
                 starfireWrathTippingPoint = {
                     name = L["Starfire -> Wrath tipping point"],
                     desc = L["starfireWrathTippingPointDesc"],
@@ -62,19 +75,6 @@ local options = {
                     step = 1,
                     set = function(_, val) BalanceSpellSuggest.db.profile.wrathStarfireTippingPoint = val end,
                     get = function(_) return BalanceSpellSuggest.db.profile.wrathStarfireTippingPoint end
-                },
-                talents = {
-                    name = L["Talents"],
-                    type = "header",
-                    order = 3
-                },
-                euphoria = {
-                    name = L["Euphoria"],
-                    desc = L["Is Euphoria skilled?"],
-                    type = "toggle",
-                    order = 4,
-                    set = function(_, val) BalanceSpellSuggest.db.profile.euphoria = val end,
-                    get = function(_) return BalanceSpellSuggest.db.profile.euphoria end
                 }
             }
         },
@@ -175,7 +175,6 @@ local options = {
 
 local defaults = {
     profile = {
-        euphoria = false,
         dotRefreshPower = 40,
         starfireWrathTippingPoint = 45,
         wrathStarfireTippingPoint = 35,
@@ -307,7 +306,7 @@ function BalanceSpellSuggest:SetUpFrames()
     self.suggestFrame = CreateFrame("Frame", "BSP_Main", UIParent)
     self.suggestFrame:SetFrameStrata("BACKGROUND")
     -- TODO: calculate size based on inner frame sizes
-    self.suggestFrame:SetWidth(64+64+64)
+    self.suggestFrame:SetWidth(64+128)
     self.suggestFrame:SetHeight(64)
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
     self.suggestFrame:RegisterForDrag("LeftButton")
@@ -412,12 +411,8 @@ function BalanceSpellSuggest:UpdateFrames()
 
     self.suggestFrame:Show()
 
+    -- some shared stuff
     local time = GetTime()
-
-    local newTexturePath = self:GetNextSpell(time)
-    self.nextSpellFrame.texture:SetTexture(newTexturePath)
-    self.nextSpellFrame.texture:SetAllPoints(self.nextSpellFrame)
-
     local targetMoonfire = 0 -- duration, 0 if not applied
     local targetSunfire = 0  -- duration, 0 if not applied
     local _,_,_,_,_,_,mET,mC = UnitAura("target", moonfirename, nil, "PLAYER|HARMFUL") -- Moonfire
@@ -428,6 +423,10 @@ function BalanceSpellSuggest:UpdateFrames()
     if sET and sC == "player" then
         targetSunfire = sET - time
     end
+
+    local newTexturePath = self:GetNextSpell(time, targetMoonfire, targetSunfire)
+    self.nextSpellFrame.texture:SetTexture(newTexturePath)
+    self.nextSpellFrame.texture:SetAllPoints(self.nextSpellFrame)
 
     self:TimerFrameUpdate(self.moonfireFrame, targetMoonfire)
     self:TimerFrameUpdate(self.sunfireFrame, targetSunfire)
@@ -458,7 +457,7 @@ end
 
 
 -- find out which spell should be cast next
-function BalanceSpellSuggest:GetNextSpell(time)
+function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
     local _,_,_,mfC = UnitBuff("player", moonkinformname)
     if mfC == nil then
         return moonkinform
@@ -505,19 +504,10 @@ function BalanceSpellSuggest:GetNextSpell(time)
         starsurgeSolarBonus = tonumber(seC)
     end
 
-    local targetMoonfire = 0 -- duration, 0 if not applied
-    local targetSunfire = 0  -- duration, 0 if not applied
     local dotDur = 20
-    if self.db.profile.euphoria then
+    local _, _, _, t1, t2  = GetTalentInfo(7, 1, GetActiveSpecGroup())
+    if t1 and t2 then
         dotDur = 10
-    end
-    local _,_,_,_,_,_,mET,mC = UnitAura("target", moonfirename, nil, "PLAYER|HARMFUL") -- Moonfire
-    if mET and mC == "player" then
-        targetMoonfire = mET - time
-    end
-    local _,_,_,_,_,_,sET,sC = UnitAura("target", sunfirename, nil, "PLAYER|HARMFUL") -- Sunfire
-    if sET and sC == "player" then
-        targetSunfire = sET - time
     end
 
     -- priority logic here
