@@ -212,6 +212,10 @@ function BalanceSpellSuggest:OnInitialize()
     BalanceSpellSuggest:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 
     self:SetUpFrames()
+
+    self.db.RegisterCallback(self, "OnProfileChanged", "UpdateFramePosition")
+    self.db.RegisterCallback(self, "OnProfileCopied", "UpdateFramePosition")
+    self.db.RegisterCallback(self, "OnProfileReset", "UpdateFramePosition")
 end
 
 
