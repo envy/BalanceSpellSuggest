@@ -42,7 +42,7 @@ local options = {
                     name = L["DoT refresh time"],
                     desc = L["dotRefreshTimeDesc"],
                     type = "range",
-                    order = 0,
+                    order = 1,
                     min = 0,
                     max = 40,
                     softMin = 1,
@@ -55,7 +55,7 @@ local options = {
                     name = L["Starfire -> Wrath tipping point"],
                     desc = L["starfireWrathTippingPointDesc"],
                     type = "range",
-                    order = 1,
+                    order = 2,
                     min = 0,
                     max = 100,
                     softMin = 10,
@@ -68,7 +68,7 @@ local options = {
                     name = L["Wrath -> Starfire tipping point"],
                     desc = L["wrathStarfireTippingPointDesc"],
                     type = "range",
-                    order = 2,
+                    order = 3,
                     min = 0,
                     max = 100,
                     softMin = 10,
@@ -76,7 +76,23 @@ local options = {
                     step = 1,
                     set = function(_, val) BalanceSpellSuggest.db.profile.wrathStarfireTippingPoint = val end,
                     get = function(_) return BalanceSpellSuggest.db.profile.wrathStarfireTippingPoint end
-                }
+                },
+                caOnBossOnly = {
+                    name = L["CA on boss only"],
+                    desc = L["Only recommend Celestial Alignment if the target is classified as a boss"],
+                    type = "toggle",
+                    order = 4,
+                    set = function(_, val) BalanceSpellSuggest.db.profile.caOnBossOnly = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.caOnBossOnly end
+                },
+                leaveOneSSCharge = {
+                    name = L["Leave one SS charge"],
+                    desc = L["leaveOneSSChargeDesc"],
+                    type = "toggle",
+                    order = 5,
+                    set = function(_, val) BalanceSpellSuggest.db.profile.leaveOneSSCharge = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.leaveOneSSCharge end
+                },
             }
         },
         display = {
@@ -191,6 +207,8 @@ local defaults = {
         starfireWrathTippingPoint = 45,
         wrathStarfireTippingPoint = 35,
         dotRefreshTime = 7,
+        caOnBossOnly = true,
+        leaveOneSSCharge = true,
         xPosition = 0,
         yPosition = 0,
         locked = true,
@@ -214,7 +232,8 @@ local moonkinformname,_,moonkinform = GetSpellInfo(24858)
 
 local lunarempowermentname = GetSpellInfo(164547)
 local solarempowermentname = GetSpellInfo(164545)
-
+local lunarpeakname = GetSpellInfo(171743)
+local solarpeakname = GetSpellInfo(171744)
 
 -- Always called
 function BalanceSpellSuggest:OnInitialize()
@@ -537,12 +556,15 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
         inCelestialAlignment = true
     end
 
+    local minStarsurgeCharges = 1
+    if self.db.profile.leaveOneSSCharge then
+        minStarsurgeCharges = 0
+    end
     local starsurgeCharges = select(1, GetSpellCharges(78674)) -- Starsurge
-
     local starsurgeLunarBonus = 0 -- charges, 0 if not applied
     local starsurgeSolarBonus = 0 -- charges, 0 if not applied
-    local _,_,_,leC,_,_,leET = UnitBuff("player", lunarempowermentname) -- Lunar Empowerment
-    local _,_,_,seC,_,_,seET = UnitBuff("player", solarempowermentname) -- Solar Empowerment
+    local _,_,_,leC,_,_,leET = UnitBuff("player", lunarempowermentname)
+    local _,_,_,seC,_,_,seET = UnitBuff("player", solarempowermentname)
     if leET then
         starsurgeLunarBonus = tonumber(leC)
     end
@@ -556,21 +578,38 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
         dotDur = 10
     end
 
+    local targetclassification = UnitClassification("target")
+    local targetIsBoss = false
+    if targetclassification == "worldboss" then
+        targetIsBoss = true
+    end
+
+    local _,_,_,lpC,_,_,lpET = UnitBuff("player", lunarpeakname)
+    local _,_,_,spC,_,_,spET = UnitBuff("player", solarpeakname)
+    local inLunarPeak = false
+    local inSolarPeak = false
+    if lpET then
+        inLunarPeak = true
+    end
+    if spET then
+        inSolarPeak = true
+    end
+
     -- priority logic here
 
     if inLunar then
-        if targetMoonfire < self.db.profile.dotRefreshTime
-        or (direction == "sun" and power <= self.db.profile.dotRefreshPower and targetMoonfire <= dotDur)
-        or (inCelestialAlignment and targetSunfire < self.db.profile.dotRefreshTime)
-        or (inCelestialAlignment and celestialalignmentDuration < 4 and targetSunfire < dotDur) then
-            return moonfire
-        end
-
-        if power == 100 and caReady then
+        if power == 100 and caReady and not (self.db.profile.caOnBossOnly and not targetIsBoss) then
             return celestialalignment
         end
 
-        local minStarsurgeCharges = 1
+        if targetMoonfire < self.db.profile.dotRefreshTime
+        or (direction == "sun" and power <= self.db.profile.dotRefreshPower and targetMoonfire <= dotDur)
+        or (inCelestialAlignment and targetSunfire < self.db.profile.dotRefreshTime)
+        or (inCelestialAlignment and celestialalignmentDuration < 4 and targetSunfire < dotDur)
+        or (inLunarPeak and targetMoonfire < (dotDur * 1.5)) then
+            return moonfire
+        end
+
         if inCelestialAlignment then
             minStarsurgeCharges = 0
         end
@@ -601,11 +640,12 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
     elseif inSolar then
         if targetSunfire < self.db.profile.dotRefreshTime
         or (direction == "sun" and power > 0 and targetSunfire < 10)
-        or (direction == "moon" and power <= self.db.profile.dotRefreshPower and targetSunfire <= dotDur) then
+        or (direction == "moon" and power <= self.db.profile.dotRefreshPower and targetSunfire <= dotDur)
+        or (inSolarPeak and targetSunfire < (dotDur * 1.5)) then
             return sunfire
         end
 
-        if starsurgeCharges > 1 then
+        if starsurgeCharges > minStarsurgeCharges then
             if starsurgeCharges == 3
             or starsurgeSolarBonus == 0
             or (starsurgeSolarBonus == 1 and currentCast == wrathname) then

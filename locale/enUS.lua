@@ -5,14 +5,15 @@ if L then
     L["DoT refresh power"] = true
     L["dotRefreshPowerDesc"] = "Check and remind me if a DoT needs to be refreshed if my eclipse power is below this value when going Lunar -> Solar or Solar -> Lunar."
     L["DoT refresh time"] = true
-    L["dotRefreshTimeDesc"] = "The maximum remaining time on the dot effects before reminding to refresh them."
+    L["dotRefreshTimeDesc"] = "The maximum remaining time on the DoT effects before reminding to refresh them."
     L["Starfire -> Wrath tipping point"] = true
     L["starfireWrathTippingPointDesc"] = "When going from lunar to solar, at which power start to suggest Wrath instead of Starfire while still in lunar."
     L["Wrath -> Starfire tipping point"] = true
     L["wrathStarfireTippingPointDesc"] = "When going from solar to lunar, at which power start to suggest Starfire instead of Wrath while still in solar."
-    L["Talents"] = true
-    L["Euphoria"] = true
-    L["Is Euphoria skilled?"] = true
+    L["CA on boss only"] = true
+    L["Only recommend Celestial Alignment if the target is classified as a boss"] = true
+    L["Leave one SS charge"] = true
+    L["leaveOneSSChargeDesc"] = "Leave at least one charge of Starsurge for manual casting of Starfall."
 
     L["Display"] = true
     L["Locked"] = true

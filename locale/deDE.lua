@@ -10,9 +10,10 @@ if L then
     --L["starfireWrathTippingPointDesc"] = "When going from lunar to solar, at which power start to suggest Wrath instead of Starfire while still in lunar."
     L["Wrath -> Starfire tipping point"] = "Zorn -> Sternenfeuer Umschlagpunkt"
     --L["wrathStarfireTippingPointDesc"] = "When going from solar to lunar, at which power start to suggest Starfire instead of Wrath while still in solar."
-    L["Talents"] = "Talente"
-    L["Euphoria"] = "Sternenrausch"
-    L["Is Euphoria skilled?"] = "Ist Sternenrausch geskillt?"
+    L["CA on boss only"] = "HA nur bei Bossen"
+    L["Only recommend Celestial Alignment if the target is classified as a boss"] = "Himmlische Ausrichtung nur vorschlagen, wenn das Ziel ein Boss ist."
+    L["Leave one SS charge"] = "Eine Aufladung SS lassen"
+    L["leaveOneSSChargeDesc"] = "Immer mindestens eine Aufladung von Sternensog zum Wirken von Sternenregen übrig lassen."
 
     L["Display"] = "Anzeige"
     L["Locked"] = "Verriegelt"
