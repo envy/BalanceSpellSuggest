@@ -140,15 +140,31 @@ local options = {
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.yPosition end
                 },
+                size = {
+                    name = L["Size"],
+                    desc = L["sizeDesc"],
+                    type = "range",
+                    order = 3,
+                    min = 10,
+                    max = 256,
+                    softMin = 10,
+                    softMax = 128,
+                    step = 1,
+                    set = function(_, val)
+                        BalanceSpellSuggest.db.profile.size = val
+                        BalanceSpellSuggest:UpdateFramePosition()
+                    end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.size end
+                },
                 timers = {
                     name = L["DoT Timer"],
                     type = "header",
-                    order = 3,
+                    order = 4,
                 },
                 timersToggle = {
                     name = L["Enable timers"],
                     type = "toggle",
-                    order = 4,
+                    order = 5,
                     set = function(_, val)
                         BalanceSpellSuggest.db.profile.timers = val
                         BalanceSpellSuggest:UpdateFramePosition()
@@ -158,7 +174,7 @@ local options = {
                 normalFontSize = {
                     name = L["Font size"],
                     type = "range",
-                    order = 5,
+                    order = 6,
                     min = 1,
                     max = 100,
                     softMin = 10,
@@ -173,7 +189,7 @@ local options = {
                 highlightFontSize = {
                     name = L["Highlight font size"],
                     type = "range",
-                    order = 6,
+                    order = 7,
                     min = 1,
                     max = 100,
                     softMin = 10,
@@ -188,6 +204,7 @@ local options = {
                 font = {
                     name = L["Font"],
                     type = "select",
+                    order = 8,
                     dialogControl = "LSM30_Font",
                     values = AceGUIWidgetLSMlists.font,
                     set = function(_, val)
@@ -211,6 +228,7 @@ local defaults = {
         leaveOneSSCharge = true,
         xPosition = 0,
         yPosition = 0,
+        size = 64,
         locked = true,
         timers = true,
         normalfontsize = 25,
@@ -311,15 +329,27 @@ function BalanceSpellSuggest:UpdateFramePosition()
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
 
     if self.db.profile.timers then
-        self.suggestFrame:SetWidth(64+128)
+        self.suggestFrame:SetWidth(self.db.profile.size * 3)
         self.moonfireFrame:Show()
         self.sunfireFrame:Show()
     else
-        self.suggestFrame:SetWidth(64)
+        self.suggestFrame:SetWidth(self.db.profile.size)
         self.moonfireFrame:Hide()
         self.sunfireFrame:Hide()
     end
 
+    self.suggestFrame:SetHeight(self.db.profile.size)
+
+    self.nextSpellFrame:SetHeight(self.db.profile.size)
+    self.nextSpellFrame:SetWidth(self.db.profile.size)
+
+    self.moonfireFrame:SetHeight(self.db.profile.size)
+    self.moonfireFrame:SetWidth(self.db.profile.size)
+    self.moonfireFrame:SetPoint("CENTER", -self.db.profile.size, 0)
+
+    self.sunfireFrame:SetHeight(self.db.profile.size)
+    self.sunfireFrame:SetWidth(self.db.profile.size)
+    self.sunfireFrame:SetPoint("CENTER", self.db.profile.size, 0)
 end
 
 
@@ -353,13 +383,12 @@ function BalanceSpellSuggest:SetUpFrames()
     -- the main frame hosting all other frames
     self.suggestFrame = CreateFrame("Frame", "BSS_Main", UIParent)
     self.suggestFrame:SetFrameStrata("BACKGROUND")
-    -- TODO: calculate size based on inner frame sizes
     if self.db.profile.timers then
-        self.suggestFrame:SetWidth(64+128)
+        self.suggestFrame:SetWidth(self.db.profile.size * 3)
     else
-        self.suggestFrame:SetWidth(64)
+        self.suggestFrame:SetWidth(self.db.profile.size)
     end
-    self.suggestFrame:SetHeight(64)
+    self.suggestFrame:SetHeight(self.db.profile.size)
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
     self.suggestFrame:RegisterForDrag("LeftButton")
 
@@ -375,18 +404,18 @@ function BalanceSpellSuggest:SetUpFrames()
     -- the frame for the next spell texture
     self.nextSpellFrame = CreateFrame("Frame", "BSS_Next", self.suggestFrame)
     self.nextSpellFrame:SetFrameStrata("BACKGROUND")
-    -- TODO: make size adjustable
-    self.nextSpellFrame:SetWidth(64)
-    self.nextSpellFrame:SetHeight(64)
+    self.nextSpellFrame:SetWidth(self.db.profile.size)
+    self.nextSpellFrame:SetHeight(self.db.profile.size)
     self.nextSpellFrame:SetPoint("CENTER", 0, 0)
-    local suggestTexture = self.nextSpellFrame:CreateTexture(nil, "ARTWORK")
-    self.nextSpellFrame.texture = suggestTexture
+    self.nextSpellFrame.texture = self.nextSpellFrame:CreateTexture(nil, "ARTWORK")
+    self.nextSpellFrame.texture:SetTexture(starfire)
+    self.nextSpellFrame.texture:SetAllPoints()
 
     -- the frame for the moonfire timer
-    self.moonfireFrame = self:CreateTimerFrame("BSS_Moonfire", moonfire, -64, 0)
+    self.moonfireFrame = self:CreateTimerFrame("BSS_Moonfire", moonfire, -self.db.profile.size, 0)
 
     -- the frame for the sunfire timer
-    self.sunfireFrame = self:CreateTimerFrame("BSS_Sunfire", sunfire, 64, 0)
+    self.sunfireFrame = self:CreateTimerFrame("BSS_Sunfire", sunfire, self.db.profile.size, 0)
 end
 
 
@@ -395,8 +424,8 @@ function BalanceSpellSuggest:CreateTimerFrame(name, texturePath, xOfs, yOfs)
     local frame  = CreateFrame("Frame", name, self.suggestFrame)
     frame:SetFrameStrata("BACKGROUND")
     -- TODO: make size adjustable
-    frame:SetWidth(64)
-    frame:SetHeight(64)
+    frame:SetWidth(self.db.profile.size)
+    frame:SetHeight(self.db.profile.size)
     frame:SetPoint("CENTER", xOfs, yOfs)
     frame.texture = frame:CreateTexture(nil, "ARTWORK")
     frame.texture:SetTexture(texturePath)
