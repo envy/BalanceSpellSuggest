@@ -22,6 +22,8 @@ if L then
     L["X position from the center."] = true
     L["Y position"] = true
     L["Y position from the center."] = true
+    L["Size"] = true
+    L["sizeDesc"] = "Size of the icons"
     L["DoT Timer"] = true
     L["Enable timers"] = true
     L["Font size"] = true

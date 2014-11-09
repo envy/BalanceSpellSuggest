@@ -608,8 +608,9 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
     end
 
     local targetclassification = UnitClassification("target")
+    local targetLevel = UnitLevel("target")
     local targetIsBoss = false
-    if targetclassification == "worldboss" then
+    if targetclassification == "worldboss" or (targetLevel < 0 and targetclassification == "elite") then
         targetIsBoss = true
     end
 
