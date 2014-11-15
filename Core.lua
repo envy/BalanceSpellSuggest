@@ -628,7 +628,7 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
     -- priority logic here
 
     if inLunar then
-        if power == 100 and caReady and not (self.db.profile.caOnBossOnly and not targetIsBoss) then
+        if caReady and not (self.db.profile.caOnBossOnly and not targetIsBoss) then
             return celestialalignment
         end
 
