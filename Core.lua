@@ -585,9 +585,9 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
         inCelestialAlignment = true
     end
 
-    local minStarsurgeCharges = 1
+    local minStarsurgeCharges = 0
     if self.db.profile.leaveOneSSCharge then
-        minStarsurgeCharges = 0
+        minStarsurgeCharges = 1
     end
     local starsurgeCharges = select(1, GetSpellCharges(78674)) -- Starsurge
     local starsurgeLunarBonus = 0 -- charges, 0 if not applied
@@ -610,7 +610,7 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
     local targetclassification = UnitClassification("target")
     local targetLevel = UnitLevel("target")
     local targetIsBoss = false
-    if targetclassification == "worldboss" or (targetLevel < 0 and targetclassification == "elite") then
+    if targetclassification == "worldboss" or ((targetLevel < 0 or targetLevel == UnitLevel("player") + 2) and targetclassification == "elite") then
         targetIsBoss = true
     end
 
