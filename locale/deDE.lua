@@ -11,7 +11,7 @@ if L then
     L["Wrath -> Starfire tipping point"] = "Zorn -> Sternenfeuer Umschlagpunkt"
     --L["wrathStarfireTippingPointDesc"] = "When going from solar to lunar, at which power start to suggest Starfire instead of Wrath while still in solar."
     L["CA on boss only"] = "HA nur bei Bossen"
-    L["CAOnBossOnlyDesc"] = "Himmlische Ausrichtung nur vorschlagen, wenn das Ziel ein Boss ist."
+    L["CAOnlyOnBossDesc"] = "Himmlische Ausrichtung nur vorschlagen, wenn das Ziel ein Boss ist."
     L["Leave one SS charge"] = "Eine Aufladung SS lassen"
     L["leaveOneSSChargeDesc"] = "Immer mindestens eine Aufladung von Sternensog zum Wirken von Sternenregen übrig lassen."
 

@@ -11,7 +11,7 @@ if L then
     L["Wrath -> Starfire tipping point"] = true
     L["wrathStarfireTippingPointDesc"] = "When going from solar to lunar, at which power start to suggest Starfire instead of Wrath while still in solar."
     L["CA on boss only"] = true
-    L["CAOnBossOnlyDesc"] = "Only recommend Celestial Alignment if the target is classified as a boss. Detection might not work in some cases."
+    L["CAOnlyOnBossDesc"] = "Only recommend Celestial Alignment if the target is classified as a boss. Detection might not work in some cases."
     L["Leave one SS charge"] = true
     L["leaveOneSSChargeDesc"] = "Leave at least one charge of Starsurge for manual casting of Starfall."
 
