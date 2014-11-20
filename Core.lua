@@ -79,7 +79,7 @@ local options = {
                 },
                 caOnBossOnly = {
                     name = L["CA on boss only"],
-                    desc = L["Only recommend Celestial Alignment if the target is classified as a boss"],
+                    desc = L["CAOnlyOnBossDesc"],
                     type = "toggle",
                     order = 4,
                     set = function(_, val) BalanceSpellSuggest.db.profile.caOnBossOnly = val end,
@@ -92,6 +92,15 @@ local options = {
                     order = 5,
                     set = function(_, val) BalanceSpellSuggest.db.profile.leaveOneSSCharge = val end,
                     get = function(_) return BalanceSpellSuggest.db.profile.leaveOneSSCharge end
+                },
+                pBehavior = {
+                    name = L["Peak behavior"],
+                    desc = L["PeakBehaviorDesc"],
+                    type = "select",
+                    order = 6,
+                    values = { always = L["PeakBehaviorAlways"], time = L["PeakBehaviorTime"], never = L["PeakBehaviorNever"] },
+                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.peakBehavior = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.peakBehavior end
                 },
             }
         },
@@ -171,10 +180,20 @@ local options = {
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.timers end
                 },
+                peakGlow = {
+                    name = L["peakGlow"],
+                    type = "toggle",
+                    order = 6,
+                    set = function(_, val)
+                        BalanceSpellSuggest.db.profile.display.peakGlow = val
+                        BalanceSpellSuggest:UpdateFramePosition()
+                    end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.display.peakGlow end
+                },
                 normalFontSize = {
                     name = L["Font size"],
                     type = "range",
-                    order = 6,
+                    order = 7,
                     min = 1,
                     max = 100,
                     softMin = 10,
@@ -189,7 +208,7 @@ local options = {
                 highlightFontSize = {
                     name = L["Highlight font size"],
                     type = "range",
-                    order = 7,
+                    order = 8,
                     min = 1,
                     max = 100,
                     softMin = 10,
@@ -204,7 +223,7 @@ local options = {
                 font = {
                     name = L["Font"],
                     type = "select",
-                    order = 8,
+                    order = 9,
                     dialogControl = "LSM30_Font",
                     values = AceGUIWidgetLSMlists.font,
                     set = function(_, val)
@@ -212,7 +231,7 @@ local options = {
                         BalanceSpellSuggest:RecreateAllFonts()
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.font  end
-                }
+                },
             }
         }
     }
@@ -235,6 +254,12 @@ local defaults = {
         highlightfontsize = 32,
         font = "Friz Quadrata TT",
         fontoptions = "OUTLINE",
+        behavior = {
+            peakBehavior = "always",
+        },
+        display = {
+            peakGlow = true,
+        },
     }
 }
 
@@ -253,6 +278,10 @@ local solarempowermentname = GetSpellInfo(164545)
 local lunarpeakname = GetSpellInfo(171743)
 local solarpeakname = GetSpellInfo(171744)
 
+local empoweredMoonkin = GetSpellInfo(157228)
+
+local glowTexturePath = "Interface\\SpellActivationOverlay\\IconAlert"
+
 -- Always called
 function BalanceSpellSuggest:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New("BalanceSpellSuggestDB", defaults, true)
@@ -266,6 +295,12 @@ function BalanceSpellSuggest:OnInitialize()
     self.db.RegisterCallback(self, "OnProfileChanged", "ProfileChanged")
     self.db.RegisterCallback(self, "OnProfileCopied", "ProfileChanged")
     self.db.RegisterCallback(self, "OnProfileReset", "ProfileChanged")
+
+    self.player = {
+        empoweredMoonkin = false,
+        lunarPeak = false,
+        solarPeak = false,
+    }
 end
 
 
@@ -410,6 +445,10 @@ function BalanceSpellSuggest:SetUpFrames()
     self.nextSpellFrame.texture = self.nextSpellFrame:CreateTexture(nil, "ARTWORK")
     self.nextSpellFrame.texture:SetTexture(starfire)
     self.nextSpellFrame.texture:SetAllPoints()
+    self.nextSpellFrame.glowTexture = self.nextSpellFrame:CreateTexture(nil, "LOW")
+    self.nextSpellFrame.glowTexture:SetTexture(glowTexturePath)
+    self.nextSpellFrame.glowTexture:SetAllPoints()
+    self.nextSpellFrame.glowTexture:SetShown(false)
 
     -- the frame for the moonfire timer
     self.moonfireFrame = self:CreateTimerFrame("BSS_Moonfire", moonfire, -self.db.profile.size, 0)
@@ -427,9 +466,14 @@ function BalanceSpellSuggest:CreateTimerFrame(name, texturePath, xOfs, yOfs)
     frame:SetWidth(self.db.profile.size)
     frame:SetHeight(self.db.profile.size)
     frame:SetPoint("CENTER", xOfs, yOfs)
-    frame.texture = frame:CreateTexture(nil, "ARTWORK")
+    frame.texture = frame:CreateTexture(nil, "BACKGROUND")
     frame.texture:SetTexture(texturePath)
     frame.texture:SetAllPoints()
+    frame.glowTexture = frame:CreateTexture(nil, "LOW")
+    frame.glowTexture:SetTexture(glowTexturePath)
+    frame.glowTexture:SetTexCoord(0.082, 0.44, 0.315, 0.49)
+    frame.glowTexture:SetAllPoints()
+    frame.glowTexture:SetShown(false)
     frame.text = frame:CreateFontString(nil, "LOW")
     frame.text:SetFont(LSM:Fetch(LSM.MediaType.FONT, self.db.profile.font), self.db.profile.normalfontsize, self.db.profile.fontoptions)
     frame.text:SetTextColor(1, 1, 1, 1)
@@ -506,6 +550,26 @@ function BalanceSpellSuggest:UpdateFrames()
 
     self.suggestFrame:Show()
 
+    self:UpdatePlayerState()
+
+--    if self.player.empoweredMoonkin then
+--        self.nextSpellFrame.glowTexture:SetShown(true)
+--    else
+--        self.nextSpellFrame.glowTexture:SetShown(false)
+--    end
+
+    if self.db.profile.display.peakGlow and self.player.lunarPeak then
+        self.moonfireFrame.glowTexture:SetShown(true)
+    else
+        self.moonfireFrame.glowTexture:SetShown(false)
+    end
+
+    if self.db.profile.display.peakGlow and self.player.solarPeak then
+        self.sunfireFrame.glowTexture:SetShown(true)
+    else
+        self.sunfireFrame.glowTexture:SetShown(false)
+    end
+
     -- some shared stuff
     local time = GetTime()
     local targetMoonfire = 0 -- duration, 0 if not applied
@@ -523,9 +587,33 @@ function BalanceSpellSuggest:UpdateFrames()
     self.nextSpellFrame.texture:SetTexture(newTexturePath)
     self.nextSpellFrame.texture:SetAllPoints(self.nextSpellFrame)
 
-    self:TimerFrameUpdate(self.moonfireFrame, targetMoonfire)
-    self:TimerFrameUpdate(self.sunfireFrame, targetSunfire)
+    if self.db.profile.timers then
+        self:TimerFrameUpdate(self.moonfireFrame, targetMoonfire)
+        self:TimerFrameUpdate(self.sunfireFrame, targetSunfire)
+    end
+end
 
+
+function BalanceSpellSuggest:UpdatePlayerState()
+    local _,_,_,_,_,_,emET = UnitBuff("player", empoweredMoonkin)
+    if emET then
+        self.player.empoweredMoonkin = true
+    else
+        self.player.empoweredMoonkin = false
+    end
+
+    local _,_,_,lpC,_,_,lpET = UnitBuff("player", lunarpeakname)
+    local _,_,_,spC,_,_,spET = UnitBuff("player", solarpeakname)
+    if lpET then
+        self.player.lunarPeak = true
+    else
+        self.player.lunarPeak = false
+    end
+    if spET then
+        self.player.solarPeak = true
+    else
+        self.player.solarPeak = false
+    end
 end
 
 
@@ -552,6 +640,8 @@ end
 
 -- find out which spell should be cast next
 function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
+    local player = self.player
+
     local _,_,_,mfC = UnitBuff("player", moonkinformname)
     if mfC == nil then
         return moonkinform
@@ -614,17 +704,6 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
         targetIsBoss = true
     end
 
-    local _,_,_,lpC,_,_,lpET = UnitBuff("player", lunarpeakname)
-    local _,_,_,spC,_,_,spET = UnitBuff("player", solarpeakname)
-    local inLunarPeak = false
-    local inSolarPeak = false
-    if lpET then
-        inLunarPeak = true
-    end
-    if spET then
-        inSolarPeak = true
-    end
-
     -- priority logic here
 
     if inLunar then
@@ -636,7 +715,8 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
         or (direction == "sun" and power <= self.db.profile.dotRefreshPower and targetMoonfire <= dotDur)
         or (inCelestialAlignment and targetSunfire < self.db.profile.dotRefreshTime)
         or (inCelestialAlignment and celestialalignmentDuration < 4 and targetSunfire < dotDur)
-        or (inLunarPeak and targetMoonfire < (dotDur * 1.5)) then
+        or (player.lunarPeak and self.db.profile.behavior.peakBehavior == "always")
+        or (player.lunarPeak and self.db.profile.behavior.peakBehavior == "time" and targetMoonfire < (dotDur * 1.5)) then
             return moonfire
         end
 
@@ -671,7 +751,8 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
         if targetSunfire < self.db.profile.dotRefreshTime
         or (direction == "sun" and power > 0 and targetSunfire < 10)
         or (direction == "moon" and power <= self.db.profile.dotRefreshPower and targetSunfire <= dotDur)
-        or (inSolarPeak and targetSunfire < (dotDur * 1.5)) then
+        or (player.solarPeak and self.db.profile.behavior.peakBehavior == "always")
+        or (player.solarPeak and self.db.profile.behavior.peakBehavior == "time" and targetSunfire < (dotDur * 1.5)) then
             return sunfire
         end
 

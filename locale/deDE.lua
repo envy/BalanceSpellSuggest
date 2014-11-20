@@ -11,9 +11,15 @@ if L then
     L["Wrath -> Starfire tipping point"] = "Zorn -> Sternenfeuer Umschlagpunkt"
     --L["wrathStarfireTippingPointDesc"] = "When going from solar to lunar, at which power start to suggest Starfire instead of Wrath while still in solar."
     L["CA on boss only"] = "HA nur bei Bossen"
-    L["Only recommend Celestial Alignment if the target is classified as a boss"] = "Himmlische Ausrichtung nur vorschlagen, wenn das Ziel ein Boss ist."
+    L["CAOnBossOnlyDesc"] = "Himmlische Ausrichtung nur vorschlagen, wenn das Ziel ein Boss ist."
     L["Leave one SS charge"] = "Eine Aufladung SS lassen"
     L["leaveOneSSChargeDesc"] = "Immer mindestens eine Aufladung von Sternensog zum Wirken von Sternenregen übrig lassen."
+
+    L["Peak behavior"] = "Zenit Verhalten"
+    L["PeakBehaviorDesc"] = "Steuert das Verhalten wann/ob DoTs am Mond-/Sonnenzenit vorgeschlagen werden sollen."
+    L["PeakBehaviorAlways"] = "Immer"
+    L["PeakBehaviorTime"] = "Nur wenn die DoTs auslaufen"
+    L["PeakBehaviorNever"] = "Niw"
 
     L["Display"] = "Anzeige"
     L["Locked"] = "Verriegelt"
@@ -29,4 +35,5 @@ if L then
     L["Font size"] = "Schriftgröße"
     L["Highlight font size"] = "Warn Schtiftgröße"
     L["Font"] = "Schriftart"
+    L["peakGlow"] = "Aufleuchten bei Mond-/Sonnenzenit"
 end
