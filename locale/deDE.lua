@@ -1,4 +1,4 @@
-local L = LibStub("AceLocale-3.0"):NewLocale("BalanceSpellSuggest", "deDE", true)
+local L = LibStub("AceLocale-3.0"):NewLocale("BalanceSpellSuggest", "deDE")
 
 if L then
     L["Behavior"] = "Verhalten"

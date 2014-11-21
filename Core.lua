@@ -301,6 +301,8 @@ function BalanceSpellSuggest:OnInitialize()
         lunarPeak = false,
         solarPeak = false,
     }
+
+    self:UpdateFramePosition()
 end
 
 
@@ -308,9 +310,9 @@ end
 function BalanceSpellSuggest:ACTIVE_TALENT_GROUP_CHANGED()
     local currentSpec = GetSpecialization()
     if tonumber(currentSpec) == 1 then
-        BalanceSpellSuggest:EnableTimer()
+        self:EnableTimer()
     else
-        BalanceSpellSuggest:DisableTimer()
+        self:DisableTimer()
     end
 end
 
