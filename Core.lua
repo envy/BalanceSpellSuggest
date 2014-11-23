@@ -181,9 +181,11 @@ local options = {
                     get = function(_) return BalanceSpellSuggest.db.profile.timers end
                 },
                 peakGlow = {
-                    name = L["peakGlow"],
-                    type = "toggle",
+                    name = L["PeakGlow"],
+                    desc = L["PeakGlowDesc"],
+                    type = "select",
                     order = 6,
+                    values = { none = L["PeakGlowNone"], normal = L["PeakGlowNormal"], spellalert = L["PeakGlowSpellAlert"] },
                     set = function(_, val)
                         BalanceSpellSuggest.db.profile.display.peakGlow = val
                         BalanceSpellSuggest:UpdateFramePosition()
@@ -258,7 +260,7 @@ local defaults = {
             peakBehavior = "always",
         },
         display = {
-            peakGlow = true,
+            peakGlow = "normal",
         },
     }
 }
@@ -439,15 +441,15 @@ function BalanceSpellSuggest:SetUpFrames()
     end
 
     -- the frame for the next spell texture
-    self.nextSpellFrame = CreateFrame("Frame", "BSS_Next", self.suggestFrame)
+    self.nextSpellFrame = CreateFrame("Button", "BSS_Next", self.suggestFrame)
     self.nextSpellFrame:SetFrameStrata("BACKGROUND")
     self.nextSpellFrame:SetWidth(self.db.profile.size)
     self.nextSpellFrame:SetHeight(self.db.profile.size)
     self.nextSpellFrame:SetPoint("CENTER", 0, 0)
-    self.nextSpellFrame.texture = self.nextSpellFrame:CreateTexture(nil, "ARTWORK")
+    self.nextSpellFrame.texture = self.nextSpellFrame:CreateTexture(nil, "ARTWORK", nil, 0)
     self.nextSpellFrame.texture:SetTexture(starfire)
     self.nextSpellFrame.texture:SetAllPoints()
-    self.nextSpellFrame.glowTexture = self.nextSpellFrame:CreateTexture(nil, "LOW")
+    self.nextSpellFrame.glowTexture = self.nextSpellFrame:CreateTexture(nil, "LOW", nil, 1)
     self.nextSpellFrame.glowTexture:SetTexture(glowTexturePath)
     self.nextSpellFrame.glowTexture:SetAllPoints()
     self.nextSpellFrame.glowTexture:SetShown(false)
@@ -462,16 +464,15 @@ end
 
 -- Creates a timer frame
 function BalanceSpellSuggest:CreateTimerFrame(name, texturePath, xOfs, yOfs)
-    local frame  = CreateFrame("Frame", name, self.suggestFrame)
+    local frame  = CreateFrame("Button", name, self.suggestFrame)
     frame:SetFrameStrata("BACKGROUND")
-    -- TODO: make size adjustable
     frame:SetWidth(self.db.profile.size)
     frame:SetHeight(self.db.profile.size)
     frame:SetPoint("CENTER", xOfs, yOfs)
-    frame.texture = frame:CreateTexture(nil, "BACKGROUND")
+    frame.texture = frame:CreateTexture(nil, "ARTWORK", nil ,0)
     frame.texture:SetTexture(texturePath)
     frame.texture:SetAllPoints()
-    frame.glowTexture = frame:CreateTexture(nil, "LOW")
+    frame.glowTexture = frame:CreateTexture(nil, "ARTWORK", nil, 1)
     frame.glowTexture:SetTexture(glowTexturePath)
     frame.glowTexture:SetTexCoord(0.082, 0.44, 0.315, 0.49)
     frame.glowTexture:SetAllPoints()
@@ -560,16 +561,26 @@ function BalanceSpellSuggest:UpdateFrames()
 --        self.nextSpellFrame.glowTexture:SetShown(false)
 --    end
 
-    if self.db.profile.display.peakGlow and self.player.lunarPeak then
-        self.moonfireFrame.glowTexture:SetShown(true)
+    if self.player.lunarPeak then
+        if self.db.profile.display.peakGlow == "normal" then
+            self.moonfireFrame.glowTexture:SetShown(true)
+        elseif self.db.profile.display.peakGlow == "spellalert" then
+            ActionButton_ShowOverlayGlow(self.moonfireFrame)
+        end
     else
         self.moonfireFrame.glowTexture:SetShown(false)
+        ActionButton_HideOverlayGlow(self.moonfireFrame)
     end
 
-    if self.db.profile.display.peakGlow and self.player.solarPeak then
-        self.sunfireFrame.glowTexture:SetShown(true)
+    if self.player.solarPeak then
+        if self.db.profile.display.peakGlow == "normal" then
+            self.sunfireFrame.glowTexture:SetShown(true)
+        elseif self.db.profile.display.peakGlow == "spellalert" then
+            ActionButton_ShowOverlayGlow(self.sunfireFrame)
+        end
     else
         self.sunfireFrame.glowTexture:SetShown(false)
+        ActionButton_HideOverlayGlow(self.sunfireFrame)
     end
 
     -- some shared stuff
@@ -627,7 +638,6 @@ function BalanceSpellSuggest:TimerFrameUpdate(frame, duration)
     else
         frame.texture:SetVertexColor(1.0, 1.0, 1.0)
         if duration <= self.db.profile.dotRefreshTime then
-            -- switch to highlight size
             frame.text:SetShown(false)
             frame.highlightText:SetShown(true)
             frame.highlightText:SetText(string.format("%.1f", duration))

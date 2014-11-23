@@ -35,5 +35,9 @@ if L then
     L["Font size"] = "Schriftgröße"
     L["Highlight font size"] = "Warn Schtiftgröße"
     L["Font"] = "Schriftart"
-    L["peakGlow"] = "Aufleuchten bei Mond-/Sonnenzenit"
+    L["PeakGlow"] = "Aufleuchten bei Mond-/Sonnenzenit"
+    L["PeakGlowDesc"] = "Ob und welches Aufleuchten bei Mond-/Sonnenzenit auftreten soll"
+    L["PeakGlowNone"] = "Nie"
+    L["PeakGlowNormal"] = "Normal"
+    --L["PeakGlowSpellAlert"] = "Spell Alert"
 end

@@ -35,5 +35,9 @@ if L then
     L["Font size"] = true
     L["Highlight font size"] = true
     L["Font"] = true
-    L["peakGlow"] = "Glow on Lunar/Solar Peak"
+    L["PeakGlow"] = "Glow on Lunar/Solar Peak"
+    L["PeakGlowDesc"] = "Whether and what glow to show on Lunar/Solar Peak"
+    L["PeakGlowNone"] = "Never"
+    L["PeakGlowNormal"] = "Normal"
+    L["PeakGlowSpellAlert"] = "Spell Alert"
 end
