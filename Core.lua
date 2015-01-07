@@ -272,6 +272,7 @@ local sunfirename,_,sunfire = GetSpellInfo(164815)
 local starsurgename,_,starsurge = GetSpellInfo(78674)
 local starfirename,_,starfire =  GetSpellInfo(2912)
 local wrathname,_,wrath = GetSpellInfo(5176)
+local starfallname,_,starfall = GetSpellInfo(48505)
 local celestialalignmentname,_,celestialalignment = GetSpellInfo(112071)
 local moonkinformname,_,moonkinform = GetSpellInfo(24858)
 
@@ -299,9 +300,27 @@ function BalanceSpellSuggest:OnInitialize()
     self.db.RegisterCallback(self, "OnProfileReset", "ProfileChanged")
 
     self.player = {
-        empoweredMoonkin = false,
-        lunarPeak = false,
-        solarPeak = false,
+        moonkinForm = false,
+        buffs = {
+            lunarPeak = false,
+            solarPeak = false,
+            empoweredMoonkin = false,
+            starfall = false,
+        },
+        power = 0,
+        direction = "none",
+        inLunar = false,
+        inSolar = false,
+        currentCast = {
+            spell = nil,
+            icon = nil,
+            startTime = nil,
+            endTime = nil,
+            id = nil,
+            interruptable = nil
+        },
+        celestialAlignmentReady = false,
+
     }
 
     self:UpdateFramePosition()
@@ -555,13 +574,13 @@ function BalanceSpellSuggest:UpdateFrames()
 
     self:UpdatePlayerState()
 
---    if self.player.empoweredMoonkin then
+--    if self.player.buffs.empoweredMoonkin then
 --        self.nextSpellFrame.glowTexture:SetShown(true)
 --    else
 --        self.nextSpellFrame.glowTexture:SetShown(false)
 --    end
 
-    if self.player.lunarPeak then
+    if self.player.buffs.lunarPeak then
         if self.db.profile.display.peakGlow == "normal" then
             self.moonfireFrame.glowTexture:SetShown(true)
         elseif self.db.profile.display.peakGlow == "spellalert" then
@@ -572,7 +591,7 @@ function BalanceSpellSuggest:UpdateFrames()
         ActionButton_HideOverlayGlow(self.moonfireFrame)
     end
 
-    if self.player.solarPeak then
+    if self.player.buffs.solarPeak then
         if self.db.profile.display.peakGlow == "normal" then
             self.sunfireFrame.glowTexture:SetShown(true)
         elseif self.db.profile.display.peakGlow == "spellalert" then
@@ -608,24 +627,61 @@ end
 
 
 function BalanceSpellSuggest:UpdatePlayerState()
+    local _,_,_,mfC = UnitBuff("player", moonkinformname)
+    if mfC ~= nil then
+        self.player.moonkinForm = true
+    else
+        self.player.moonkinForm = false
+    end
+
     local _,_,_,_,_,_,emET = UnitBuff("player", empoweredMoonkin)
     if emET then
-        self.player.empoweredMoonkin = true
+        self.player.buffs.empoweredMoonkin = true
     else
-        self.player.empoweredMoonkin = false
+        self.player.buffs.empoweredMoonkin = false
+    end
+
+    local power = UnitPower("player", 8)
+    self.player.direction = GetEclipseDirection()
+    if power < 0 then
+        self.player.power = power * -1
+        self.player.inLunar = true
+        self.player.inSolar = false
+    elseif power > 0 then
+        self.player.power = power
+        self.player.inLunar = false
+        self.player.inSolar = true
+    else
+        self.player.power = 0
+        self.player.inLunar = false
+        self.player.inSolar = false
+    end
+
+    local spell, _, _, icon, startTime, endTime, _, id, interrupt = UnitCastingInfo("player")
+    self.player.currentCast.spell = spell
+    self.player.currentCast.icon = icon
+    self.player.currentCast.startTime = startTime
+    self.player.currentCast.endTime = endTime
+    self.player.currentCast.id = id
+    self.player.currentCast.interruptable = interrupt
+
+    if select(2, GetSpellCooldown(112071)) == 0 then
+        self.player.celestialAlignmentReady = true
+    else
+        self.player.celestialAlignmentReady = false
     end
 
     local _,_,_,lpC,_,_,lpET = UnitBuff("player", lunarpeakname)
     local _,_,_,spC,_,_,spET = UnitBuff("player", solarpeakname)
     if lpET then
-        self.player.lunarPeak = true
+        self.player.buffs.lunarPeak = true
     else
-        self.player.lunarPeak = false
+        self.player.buffs.lunarPeak = false
     end
     if spET then
-        self.player.solarPeak = true
+        self.player.buffs.solarPeak = true
     else
-        self.player.solarPeak = false
+        self.player.buffs.solarPeak = false
     end
 end
 
@@ -654,31 +710,10 @@ end
 function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
     local player = self.player
 
-    local _,_,_,mfC = UnitBuff("player", moonkinformname)
-    if mfC == nil then
+    if not player.moonkinForm then
         return moonkinform
     end
 
-    local power = UnitPower("player", 8)
-    local inLunar = false
-    local inSolar = false
-    local direction = GetEclipseDirection()
-    if power < 0 then
-        inLunar = true
-        power = (power*-1)
-    elseif power > 0 then
-        inSolar = true
-    else
-        -- nothing, tipping point
-    end
-
-    local currentCast = UnitCastingInfo("player")
-
-    local caReady = false
-    local caCD = select(2, GetSpellCooldown(112071))
-    if caCD == 0 then
-        caReady = true
-    end
     local inCelestialAlignment = false
     local celestialalignmentDuration = 0
     local _,_,_,_,_,_,caET = UnitBuff("player", celestialalignmentname)
@@ -718,17 +753,32 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
 
     -- priority logic here
 
-    if inLunar then
-        if caReady and not (self.db.profile.caOnBossOnly and not targetIsBoss) then
+    if inCelestialAlignment then
+        -- always do the lunar cycle
+        if targetSunfire < self.db.profile.dotRefreshTime
+        or (celestialalignmentDuration < 4 and targetSunfire < dotDur) then
+            return moonfire
+        end
+
+        if starsurgeCharges > 0 then
+            if ((starsurgeCharges == 3 or starsurgeLunarBonus == 0) and player.currentCast.spell ~= starfirename)
+            or (starsurgeLunarBonus == 1 and player.currentCast.spell == starfirename) then
+                return starsurge
+            end
+        end
+
+        return starfire
+    end
+
+    if player.inLunar then
+        if player.celestialAlignmentReady and not (self.db.profile.caOnBossOnly and not targetIsBoss) then
             return celestialalignment
         end
 
         if targetMoonfire < self.db.profile.dotRefreshTime
-        or (direction == "sun" and power <= self.db.profile.dotRefreshPower and targetMoonfire <= dotDur)
-        or (inCelestialAlignment and targetSunfire < self.db.profile.dotRefreshTime)
-        or (inCelestialAlignment and celestialalignmentDuration < 4 and targetSunfire < dotDur)
-        or (player.lunarPeak and self.db.profile.behavior.peakBehavior == "always")
-        or (player.lunarPeak and self.db.profile.behavior.peakBehavior == "time" and targetMoonfire < (dotDur * 1.5)) then
+        or (player.direction == "sun" and player.power <= self.db.profile.dotRefreshPower and targetMoonfire <= dotDur)
+        or (player.buffs.lunarPeak and self.db.profile.behavior.peakBehavior == "always")
+        or (player.buffs.lunarPeak and self.db.profile.behavior.peakBehavior == "time" and targetMoonfire < (dotDur * 1.5)) then
             return moonfire
         end
 
@@ -737,55 +787,51 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
         end
 
         if starsurgeCharges > minStarsurgeCharges then
-            if starsurgeCharges == 3
-            or starsurgeLunarBonus == 0
-            or (starsurgeLunarBonus == 1 and currentCast == starfirename) then
-                if currentCast == starsurgename then
-                    -- nothing
-                else
-                    return starsurge
-                end
+            if (starsurgeCharges == 3 and starsurgeLunarBonus > 0) then
+                return starfall
+            end
+            if ((starsurgeCharges == 3 or starsurgeLunarBonus == 0) and player.currentCast.spell ~= starsurgename)
+            or (starsurgeLunarBonus == 1 and player.currentCast.spell == starfirename) then
+                return starsurge
             end
         end
 
-        if direction == "moon" then
+        if player.direction == "moon" then
             return starfire
         end
 
-        if direction == "sun" then
-            if power > self.db.profile.starfireWrathTippingPoint then
+        if player.direction == "sun" then
+            if player.power > self.db.profile.starfireWrathTippingPoint then
                 return starfire
             else
                 return wrath
             end
         end
-    elseif inSolar then
+    elseif player.inSolar then
         if targetSunfire < self.db.profile.dotRefreshTime
-        or (direction == "sun" and power > 0 and targetSunfire < 10)
-        or (direction == "moon" and power <= self.db.profile.dotRefreshPower and targetSunfire <= dotDur)
-        or (player.solarPeak and self.db.profile.behavior.peakBehavior == "always")
-        or (player.solarPeak and self.db.profile.behavior.peakBehavior == "time" and targetSunfire < (dotDur * 1.5)) then
+        or (player.direction == "sun" and player.power > 0 and targetSunfire < 10)
+        or (player.direction == "moon" and player.power <= self.db.profile.dotRefreshPower and targetSunfire <= dotDur)
+        or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "always")
+        or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "time" and targetSunfire < (dotDur * 1.5)) then
             return sunfire
         end
 
         if starsurgeCharges > minStarsurgeCharges then
-            if starsurgeCharges == 3
-            or starsurgeSolarBonus == 0
-            or (starsurgeSolarBonus == 1 and currentCast == wrathname) then
-                if currentCast == starsurgename then
-                    -- nothing
-                else
-                    return starsurge
-                end
+            if (starsurgeCharges == 3 and starsurgeSolarBonus > 0) then
+                return starfall
+            end
+            if ((starsurgeCharges == 3 or starsurgeSolarBonus == 0) and player.currentCast.spell ~= starsurgename)
+            or (starsurgeSolarBonus == 1 and player.currentCast.spell == wrathname) then
+                return starsurge
             end
         end
 
-        if direction == "sun" then
+        if player.direction == "sun" then
             return wrath
         end
 
-        if direction == "moon" then
-            if power > self.db.profile.wrathStarfireTippingPoint then
+        if player.direction == "moon" then
+            if player.power > self.db.profile.wrathStarfireTippingPoint then
                 return wrath
             else
                 return starfire
@@ -793,7 +839,7 @@ function BalanceSpellSuggest:GetNextSpell(time, targetMoonfire, targetSunfire)
         end
     else
         -- opener
-        if currentCast == starfirename then
+        if player.currentCast.spell == starfirename then
             return moonfire
         end
         return starfire
