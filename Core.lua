@@ -302,6 +302,7 @@ local sunfirename,_,sunfire = GetSpellInfo(164815)
 local starsurgename,_,starsurge = GetSpellInfo(78674)
 local starfirename,_,starfire =  GetSpellInfo(2912)
 local wrathname,_,wrath = GetSpellInfo(5176)
+local stellarflarename,_,stellarflare = GetSpellInfo(152221)
 local starfallname,_,starfall = GetSpellInfo(48505)
 local celestialalignmentname,_,celestialalignment = GetSpellInfo(112071)
 local moonkinformname,_,moonkinform = GetSpellInfo(24858)
@@ -353,6 +354,8 @@ function BalanceSpellSuggest:OnInitialize()
             starfire = 0,
             wrath = 0,
             stellarflare = 0,
+            starsurge = 1.5, -- GCD
+            starfall = 1.5, -- GCD
         },
         inCombat = false,
         power = 0,
@@ -375,6 +378,7 @@ function BalanceSpellSuggest:OnInitialize()
         debuffs = {
             moonfire = 0,
             sunfire = 0,
+            stellarflare = 0,
         }
     }
 
@@ -704,7 +708,7 @@ function BalanceSpellSuggest:UpdatePlayerState()
     if t1 and t2 then
         self.player.talents.euphoria = true
     else
-        self.player.talents.euphora = false
+        self.player.talents.euphoria = false
     end
 
     local _, _, _, t1, t2  = GetTalentInfo(7, 2, GetActiveSpecGroup())
@@ -799,8 +803,10 @@ end
 function BalanceSpellSuggest:UpdatePlayerCastTimes()
     local _,_,_,starfirect =  GetSpellInfo(2912)
     local _,_,_,wrathct = GetSpellInfo(5176)
+    local _,_,_,stellarflarect = GetSpellInfo(152221)
     self.player.castTimes.starfire = starfirect / 1000
     self.player.castTimes.wrath = wrathct / 1000
+    self.player.castTimes.stellarflare = stellarflarect / 1000
 end
 
 
@@ -908,6 +914,12 @@ function BalanceSpellSuggest:GetNextSpellWithPrediction()
         end
 
         if player.direction == "sun" then
+            if player.talents.stellarflare then
+                local afterstellarflare = self.predictor.getEnergy(player.castTimes.stellarflare)
+                if afterstellarflare >= -10 and afterstellarflare <= 10 then
+                    return stellarflare
+                end
+            end
             local afterstarfire = self.predictor.getEnergy(player.castTimes.starfire)
             if afterstarfire <= 5 then
                 return starfire
@@ -934,6 +946,12 @@ function BalanceSpellSuggest:GetNextSpellWithPrediction()
         end
 
         if player.direction == "moon" then
+            if player.talents.stellarflare then
+                local afterstellarflare = self.predictor.getEnergy(player.castTimes.stellarflare)
+                if afterstellarflare >= -10 and afterstellarflare <= 10 then
+                    return stellarflare
+                end
+            end
             local afterwrath = self.predictor.getEnergy(player.castTimes.wrath)
             if afterwrath >= 0 then
                 return wrath
@@ -948,21 +966,7 @@ end
 
 -- handle starsurge
 function BalanceSpellSuggest:CalcStarsurgeRota(player, minCharges)
-    if player.inLunar then
-        if player.starsurgeCharges > minCharges then
-            if (player.starsurgeCharges == 3 and player.buffs.starsurgeLunarBonus > 0) then
-                if player.buffs.starfall == 0 then
-                    return starfall
-                else
-                    return starsurge
-                end
-            end
-            if ((player.starsurgeCharges == 3 or player.buffs.starsurgeLunarBonus == 0) and player.currentCast.spell ~= starfirename)
-                    or (player.buffs.starsurgeLunarBonus == 1 and player.currentCast.spell == starfirename) then
-                return starsurge
-            end
-        end
-    else
+    if player.inSolar then
         if player.starsurgeCharges > minCharges then
             if (player.starsurgeCharges == 3 and player.buffs.starsurgeSolarBonus > 0) then
                 if player.buffs.starfall == 0 then
@@ -973,6 +977,20 @@ function BalanceSpellSuggest:CalcStarsurgeRota(player, minCharges)
             end
             if ((player.starsurgeCharges == 3 or player.buffs.starsurgeSolarBonus == 0) and player.currentCast.spell ~= starsurgename)
                     or (player.buffs.starsurgeSolarBonus == 1 and player.currentCast.spell == wrathname) then
+                return starsurge
+            end
+        end
+    else -- lunar and none
+        if player.starsurgeCharges > minCharges then
+            if (player.starsurgeCharges == 3 and player.buffs.starsurgeLunarBonus > 0) then
+                if player.buffs.starfall == 0 then
+                    return starfall
+                else
+                    return starsurge
+                end
+            end
+            if ((player.starsurgeCharges == 3 or player.buffs.starsurgeLunarBonus == 0) and player.currentCast.spell ~= starfirename)
+                    or (player.buffs.starsurgeLunarBonus == 1 and player.currentCast.spell == starfirename) then
                 return starsurge
             end
         end
