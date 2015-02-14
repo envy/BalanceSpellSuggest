@@ -6,12 +6,6 @@ if L then
     --L["dotRefreshPowerDesc"] = "Check and remind me if a DoT needs to be refreshed if my eclipse power is below this value when goind Lunar -> Solar or Solar -> Lunar."
     L["DoT refresh time"] = "DoT Erneuerungszeit"
     L["dotRefreshTimeDesc"] = "Die maximal verbleibene Zeit der DoTs bevor an das Erneuern erinnert werden soll."
-    L["Starfire -> Wrath tipping point"] = "Sternenfeuer -> Zorn Umschlagpunkt"
-    --L["starfireWrathTippingPointDesc"] = "When going from lunar to solar, at which power start to suggest Wrath instead of Starfire while still in lunar."
-    L["Wrath -> Starfire tipping point"] = "Zorn -> Sternenfeuer Umschlagpunkt"
-    --L["wrathStarfireTippingPointDesc"] = "When going from solar to lunar, at which power start to suggest Starfire instead of Wrath while still in solar."
-    L["CA on boss only"] = "HA nur bei Bossen"
-    L["CAOnlyOnBossDesc"] = "Himmlische Ausrichtung nur vorschlagen, wenn das Ziel ein Boss ist."
     L["Leave one SS charge"] = "Eine Aufladung SS lassen"
     L["leaveOneSSChargeDesc"] = "Immer mindestens eine Aufladung von Sternensog zum Wirken von Sternenregen übrig lassen."
 
@@ -19,7 +13,13 @@ if L then
     L["PeakBehaviorDesc"] = "Steuert das Verhalten wann/ob DoTs am Mond-/Sonnenzenit vorgeschlagen werden sollen."
     L["PeakBehaviorAlways"] = "Immer"
     L["PeakBehaviorTime"] = "Nur wenn die DoTs auslaufen"
-    L["PeakBehaviorNever"] = "Niw"
+    L["PeakBehaviorNever"] = "Nie"
+
+    L["CA behavior"] = true
+    L["CABehaviorDesc"] = "Steuer das Verhalten wann/ob Himmlische Ausrichtung vorgeschlagen werden soll."
+    L["CABehaviorAlways"] = "Immer (während Mond)"
+    L["CABehaviorBoss"] = "Nur gegen Bosse"
+    L["CABehaviorNever"] = "Nie"
 
     L["Display"] = "Anzeige"
     L["Locked"] = "Verriegelt"

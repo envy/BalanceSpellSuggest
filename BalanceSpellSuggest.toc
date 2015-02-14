@@ -1,9 +1,9 @@
 ## Interface: 60000
 ## Title: Balance Spell Suggest
 ## Author: envY (clemenZ9 on curse)
-## Version: v2
+## Version: v5
 ## SavedVariables: BalanceSpellSuggestDB
-## OptionalDeps: Ace3, LibSharedMedia-3.0
+## OptionalDeps: Ace3, LibSharedMedia-3.0, Masque
 
 embeds.xml
 

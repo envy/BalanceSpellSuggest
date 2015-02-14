@@ -18,31 +18,52 @@ BalanceSpellSuggest.updateTimer = nil
 BalanceSpellSuggest.predictor = {}
 
 do
-    local a1, a1i, b1, b1i
-    local euphoriaMathValues   = {104.5, 1/3.2 }
-    local NOeuphoriaMathValues = {104.5, math.pi/20 }
+    -- Adapted from BlanacePowerTracker
+    local a, ai, b, bi
+    local euphoriaValues = {104.5, 1/3.2 }
+    local normalValues = {104.5, math.pi/20 }
 
     local energyToTime = function(energy, direction)
-        local dir = direction or GetEclipseDirection()
-        if dir == "sun" then
-            return ((math.asin(energy * a1i) + math.pi) * b1i)
+        if direction == "sun" then
+            return ((math.asin(energy * ai) + math.pi) * bi)
         else -- lunar and none
-            return (math.asin(energy * a1i) * b1i * -1)
+            return (math.asin(energy * ai) * bi * -1)
         end
     end
 
     BalanceSpellSuggest.predictor.updateValues = function(euphoria)
-        a1, b1 = unpack((euphoria and euphoriaMathValues) or NOeuphoriaMathValues)
-        a1i = 1/a1
-        b1i = 1/b1
+        a, b = unpack((euphoria and euphoriaValues) or normalValues)
+        ai = 1/ a
+        bi = 1/ b
     end
 
-    BalanceSpellSuggest.predictor.getEnergy = function(casttime, energy, direction)
-        local power = UnitPower("player", 8)
-        local timenow = energyToTime(energy or power, direction)
-        local temp = math.sin((timenow + casttime) * b1) * a1
+    BalanceSpellSuggest.predictor.getEnergy = function(casttime, player)
+        local startEnergy
+        if player.currentCast.startPower ~= nil then
+            startEnergy = player.currentCast.startPower
+        else
+            startEnergy = player.rawPower
+        end
+        local timenow = energyToTime(startEnergy, player.direction)
+        local temp = math.sin((timenow + casttime) * b) * a
         return math.min(math.max(math.floor(temp), -100), 100) * -1
     end
+end
+
+-- https://gist.github.com/MihailJP/3931841
+local function clone (t) -- deep-copy a table
+    if type(t) ~= "table" then return t end
+    local meta = getmetatable(t)
+    local target = {}
+    for k, v in pairs(t) do
+        if type(v) == "table" then
+            target[k] = clone(v)
+        else
+            target[k] = v
+        end
+    end
+    setmetatable(target, meta)
+    return target
 end
 
 local options = {
@@ -82,39 +103,18 @@ local options = {
                     set = function(_, val) BalanceSpellSuggest.db.profile.dotRefreshTime = val end,
                     get = function(_) return BalanceSpellSuggest.db.profile.dotRefreshTime end
                 },
-                starfireWrathTippingPoint = {
-                    name = L["Starfire -> Wrath tipping point"],
-                    desc = L["starfireWrathTippingPointDesc"],
+                stellarFlarePowerWindow = {
+                    name = L["Stellar Flare power window"],
+                    desc = L["sfPowerWindowDesc"],
                     type = "range",
-                    order = 2,
-                    min = 0,
-                    max = 100,
-                    softMin = 10,
-                    softMax = 50,
+                    order = 1,
+                    min = 1,
+                    max = 90,
+                    softMin = 5,
+                    softMax = 30,
                     step = 1,
-                    set = function(_, val) BalanceSpellSuggest.db.profile.starfireWrathTippingPoint = val end,
-                    get = function(_) return BalanceSpellSuggest.db.profile.starfireWrathTippingPoint end
-                },
-                wrathStarfireTippingPoint = {
-                    name = L["Wrath -> Starfire tipping point"],
-                    desc = L["wrathStarfireTippingPointDesc"],
-                    type = "range",
-                    order = 3,
-                    min = 0,
-                    max = 100,
-                    softMin = 10,
-                    softMax = 50,
-                    step = 1,
-                    set = function(_, val) BalanceSpellSuggest.db.profile.wrathStarfireTippingPoint = val end,
-                    get = function(_) return BalanceSpellSuggest.db.profile.wrathStarfireTippingPoint end
-                },
-                caOnBossOnly = {
-                    name = L["CA on boss only"],
-                    desc = L["CAOnlyOnBossDesc"],
-                    type = "toggle",
-                    order = 4,
-                    set = function(_, val) BalanceSpellSuggest.db.profile.caOnBossOnly = val end,
-                    get = function(_) return BalanceSpellSuggest.db.profile.caOnBossOnly end
+                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.stellarFlarePowerWindow = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.stellarFlarePowerWindow end
                 },
                 leaveOneSSCharge = {
                     name = L["Leave one SS charge"],
@@ -123,6 +123,15 @@ local options = {
                     order = 5,
                     set = function(_, val) BalanceSpellSuggest.db.profile.leaveOneSSCharge = val end,
                     get = function(_) return BalanceSpellSuggest.db.profile.leaveOneSSCharge end
+                },
+                caBehavior = {
+                    name = L["CA behavior"],
+                    desc = L["CABehaviorDesc"],
+                    type = "select",
+                    order = 6,
+                    values = { always = L["CABehaviorAlways"], boss = L["CABehaviorBoss"], never = L["CABehaviorNever"] },
+                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.caBehavior = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.caBehavior end
                 },
                 pBehavior = {
                     name = L["Peak behavior"],
@@ -195,6 +204,22 @@ local options = {
                         BalanceSpellSuggest:UpdateFramePosition()
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.size end
+                },
+                spacing = {
+                    name = L["Spacing"],
+                    desc = L["spacingDesc"],
+                    type = "range",
+                    order = 3,
+                    min = 0,
+                    max = 1000,
+                    softMin = 0,
+                    softMax = 100,
+                    step = 1,
+                    set = function(_, val)
+                        BalanceSpellSuggest.db.profile.display.spacing = val
+                        BalanceSpellSuggest:UpdateFramePosition()
+                    end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.display.spacing end
                 },
                 timers = {
                     name = L["DoT Timer"],
@@ -273,25 +298,25 @@ local options = {
 local defaults = {
     profile = {
         dotRefreshPower = 40,
-        starfireWrathTippingPoint = 45,
-        wrathStarfireTippingPoint = 35,
         dotRefreshTime = 7,
-        caOnBossOnly = true,
         leaveOneSSCharge = true,
         xPosition = 0,
         yPosition = 0,
         size = 64,
         locked = true,
         timers = true,
-        normalfontsize = 25,
-        highlightfontsize = 32,
+        normalfontsize = 15,
+        highlightfontsize = 17,
         font = "Friz Quadrata TT",
         fontoptions = "OUTLINE",
         behavior = {
+            stellarFlarePowerWindow = 20,
             peakBehavior = "time",
+            caBehavior = "boss",
         },
         display = {
             peakGlow = "normal",
+            spacing = 0,
         },
     }
 }
@@ -364,7 +389,9 @@ function BalanceSpellSuggest:OnInitialize()
             moonfire = 1.5, -- GCD
             sunfire = 1.5, -- GCD
             moonkinform = 1.5, -- GCD
-            celestialalignment = 1.5, -- GCD
+            celestialalignment = 0, -- no GCD
+            solarbeam = 0, -- no GCD
+            naturesvigil = 0, -- no GCD
         },
         inCombat = false,
         power = 0,
@@ -376,20 +403,20 @@ function BalanceSpellSuggest:OnInitialize()
             spell = nil,
             icon = nil,
             startTime = nil,
+            startPower = nil,
             endTime = nil,
             id = nil,
             interruptable = nil
         },
+        target = {
+            debuffs = {
+                moonfire = 0,
+                sunfire = 0,
+                stellarflare = 0,
+            }
+        },
         celestialAlignmentReady = false,
         starsurgeCharges = 0,
-    }
-
-    self.target = {
-        debuffs = {
-            moonfire = 0,
-            sunfire = 0,
-            stellarflare = 0,
-        }
     }
 
     self:UpdateFramePosition()
@@ -473,11 +500,11 @@ function BalanceSpellSuggest:UpdateFramePosition()
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
 
     if self.db.profile.timers then
-        self.suggestFrame:SetWidth(self.db.profile.size * 3)
+        self.suggestFrame:SetWidth(self.db.profile.size * 3 + self.db.profile.display.spacing)
         self.moonfireFrame:Show()
         self.sunfireFrame:Show()
     else
-        self.suggestFrame:SetWidth(self.db.profile.size)
+        self.suggestFrame:SetWidth(self.db.profile.size * 2 + self.db.profile.display.spacing)
         self.moonfireFrame:Hide()
         self.sunfireFrame:Hide()
     end
@@ -489,6 +516,7 @@ function BalanceSpellSuggest:UpdateFramePosition()
 
     self.nextSpellFrame:SetHeight(self.db.profile.size)
     self.nextSpellFrame:SetWidth(self.db.profile.size)
+    self.nextSpellFrame:SetPoint("CENTER", self.db.profile.size + self.db.profile.display.spacing, 0)
 
     self.moonfireFrame:SetHeight(self.db.profile.size/2)
     self.moonfireFrame:SetWidth(self.db.profile.size/2)
@@ -497,6 +525,10 @@ function BalanceSpellSuggest:UpdateFramePosition()
     self.sunfireFrame:SetHeight(self.db.profile.size/2)
     self.sunfireFrame:SetWidth(self.db.profile.size/2)
     self.sunfireFrame:SetPoint("CENTER", -self.db.profile.size*0.75, -self.db.profile.size/4)
+
+    if self.masque then
+        self.masque:ReSkin()
+    end
 end
 
 
@@ -504,6 +536,7 @@ end
 function BalanceSpellSuggest:ToggleFrameLock(_, val)
     self.db.profile.locked = val
     if self.db.profile.locked then
+        self.suggestFrame:SetFrameStrata("BACKGROUND")
         self.suggestFrame:SetMovable(false)
         self.suggestFrame:EnableMouse(false)
         self.suggestFrame:SetScript("OnDragStart", function() end)
@@ -513,6 +546,7 @@ function BalanceSpellSuggest:ToggleFrameLock(_, val)
             frame.texture:SetVertexColor(1.0, 1.0, 1.0, 1.0)
         end
     else
+        self.suggestFrame:SetFrameStrata("MEDIUM")
         self.suggestFrame:SetMovable(true)
         self.suggestFrame:EnableMouse(true)
         self.suggestFrame:SetScript("OnDragStart", self.suggestFrame.StartMoving)
@@ -553,6 +587,7 @@ function BalanceSpellSuggest:SetUpFrames()
     self.curSpellFrame:SetWidth(self.db.profile.size)
     self.curSpellFrame:SetHeight(self.db.profile.size)
     self.curSpellFrame:SetPoint("CENTER", 0, 0)
+    self.curSpellFrame:EnableMouse(false)
     self.curSpellFrame.texture = self.curSpellFrame:CreateTexture(nil, "ARTWORK", nil, 0)
     self.curSpellFrame.texture:SetTexture(starfire)
     self.curSpellFrame.texture:SetAllPoints()
@@ -566,7 +601,8 @@ function BalanceSpellSuggest:SetUpFrames()
     self.nextSpellFrame:SetFrameStrata("BACKGROUND")
     self.nextSpellFrame:SetWidth(self.db.profile.size)
     self.nextSpellFrame:SetHeight(self.db.profile.size)
-    self.nextSpellFrame:SetPoint("CENTER", self.db.profile.size, 0)
+    self.nextSpellFrame:SetPoint("CENTER", self.db.profile.size + self.db.profile.display.spacing, 0)
+    self.nextSpellFrame:EnableMouse(false)
     self.nextSpellFrame.texture = self.nextSpellFrame:CreateTexture(nil, "ARTWORK", nil, 0)
     self.nextSpellFrame.texture:SetTexture(starfire)
     self.nextSpellFrame.texture:SetAllPoints()
@@ -574,12 +610,27 @@ function BalanceSpellSuggest:SetUpFrames()
     self.nextSpellFrame.glowTexture:SetTexture(glowTexturePath)
     self.nextSpellFrame.glowTexture:SetAllPoints()
     self.nextSpellFrame.glowTexture:SetShown(false)
+    self.nextSpellFrame.text = self.nextSpellFrame:CreateFontString(nil, "LOW")
+    self.nextSpellFrame.text:SetFont(LSM:Fetch(LSM.MediaType.FONT, self.db.profile.font), self.db.profile.normalfontsize, self.db.profile.fontoptions)
+    self.nextSpellFrame.text:SetTextColor(1, 1, 1, 1)
+    self.nextSpellFrame.text:SetAllPoints()
+    self.nextSpellFrame.text:SetShown(false)
 
     -- the frame for the moonfire timer
     self.moonfireFrame = self:CreateTimerFrame("BSS_Moonfire", moonfire, -self.db.profile.size*0.75, self.db.profile.size/4)
 
     -- the frame for the sunfire timer
     self.sunfireFrame = self:CreateTimerFrame("BSS_Sunfire", sunfire, -self.db.profile.size*0.75, -self.db.profile.size/4)
+
+    -- Setup Masque
+    local masque = LibStub("Masque", true)
+    if not masque then
+        return
+    end
+    self.masque = masque:Group("Balance Spell Suggest", "Suggestion Icons")
+    self.masque:AddButton(self.curSpellFrame, {Icon = self.curSpellFrame.texture})
+    self.masque:AddButton(self.nextSpellFrame, {Icon = self.nextSpellFrame.texture})
+    self.masque:ReSkin()
 end
 
 
@@ -717,11 +768,13 @@ function BalanceSpellSuggest:UpdateFrames()
     if nextTexturePath then
         self.nextSpellFrame.texture:SetTexture(nextTexturePath)
         self.nextSpellFrame.texture:SetAllPoints(self.nextSpellFrame)
+        self.nextSpellFrame.text:SetShown(true)
+        self.nextSpellFrame.text:SetText(string.format("%.0f", newEnergy))
     end
 
     if self.db.profile.timers then
-        self:TimerFrameUpdate(self.moonfireFrame, self.target.debuffs.moonfire)
-        self:TimerFrameUpdate(self.sunfireFrame, self.target.debuffs.sunfire)
+        self:TimerFrameUpdate(self.moonfireFrame, self.player.target.debuffs.moonfire)
+        self:TimerFrameUpdate(self.sunfireFrame, self.player.target.debuffs.sunfire)
     end
 end
 
@@ -796,6 +849,12 @@ function BalanceSpellSuggest:UpdatePlayerState()
     end
 
     local spell, _, _, icon, startTime, endTime, _, id, interrupt = UnitCastingInfo("player")
+    if startTime ~= nil and self.player.currentCast.startTime ~= startTime then
+        self.player.currentCast.startPower = self.player.rawPower
+    elseif spell == nil then
+        self.player.currentCast.startPower = nil
+    end
+
     self.player.currentCast.spell = spell
     self.player.currentCast.icon = icon
     self.player.currentCast.startTime = startTime
@@ -846,7 +905,6 @@ function BalanceSpellSuggest:UpdatePlayerCastTimes()
     self.player.castTimes.starsurge = math.max(self.baseGCD * (1 - curHaste), 1)
     self.player.castTimes.starfall = math.max(self.baseGCD * (1 - curHaste), 1)
     self.player.castTimes.moonkinform = math.max(self.baseGCD * (1 - curHaste), 1)
-    self.player.castTimes.celestialalignment = math.max(self.baseGCD * (1 - curHaste), 1)
 end
 
 
@@ -855,23 +913,29 @@ function BalanceSpellSuggest:UpdateTargetState()
 
     local _,_,_,_,_,_,mET,mC = UnitAura("target", moonfirename, nil, "PLAYER|HARMFUL") -- Moonfire
     if mET and mC == "player" then
-        self.target.debuffs.moonfire = mET - time
+        self.player.target.debuffs.moonfire = mET - time
     else
-        self.target.debuffs.moonfire = 0
+        self.player.target.debuffs.moonfire = 0
     end
     local _,_,_,_,_,_,sET,sC = UnitAura("target", sunfirename, nil, "PLAYER|HARMFUL") -- Sunfire
     if sET and sC == "player" then
-        self.target.debuffs.sunfire = sET - time
+        self.player.target.debuffs.sunfire = sET - time
     else
-        self.target.debuffs.sunfire = 0
+        self.player.target.debuffs.sunfire = 0
+    end
+    local _,_,_,_,_,_,sET,sC = UnitAura("target", stellarflarename, nil, "PLAYER|HARMFUL") -- Stellar Flare
+    if sET and sC == "player" then
+        self.player.target.debuffs.stellarflare = sET - time
+    else
+        self.player.target.debuffs.stellarflare = 0
     end
 
     local targetclassification = UnitClassification("target")
     local targetLevel = UnitLevel("target")
     if targetclassification == "worldboss" or ((targetLevel < 0 or targetLevel == UnitLevel("player") + 2) and targetclassification == "elite") then
-        self.target.isBoss = true
+        self.player.target.isBoss = true
     else
-        self.target.isBoss = false
+        self.player.target.isBoss = false
     end
 end
 
@@ -908,9 +972,9 @@ function BalanceSpellSuggest:curSpell(player)
         minStarsurgeCharges = 1
     end
 
-    local dotDur = 20
+    local halfCycle = 20
     if player.talents.euphoria then
-        dotDur = 10
+        halfCycle = 10
     end
 
     -- TODO opening rotation
@@ -920,68 +984,80 @@ function BalanceSpellSuggest:curSpell(player)
 
     if player.buffs.celestialAlignment > 0 then
         -- always do the lunar cycle
-        if self.target.debuffs.sunfire < self.db.profile.dotRefreshTime
-                or (player.buffs.celestialAlignment < 4 and self.target.debuffs.sunfire < dotDur) then
-            return moonfire, self.predictor.getEnergy(player.castTimes.moonfire, player.rawPower, player.direction)
+        if player.target.debuffs.sunfire < self.db.profile.dotRefreshTime
+                or (player.buffs.celestialAlignment < 4 and player.target.debuffs.sunfire < halfCycle) then
+            return moonfire, self.predictor.getEnergy(player.castTimes.moonfire, player)
         end
 
-        local ss, eo = self:CalcStarsurgeRota(player, 0)
+        local ss, sse = self:CalcStarsurgeRota(player, 0)
         if ss then
-            return ss, eo
+            return ss, sse
         end
 
-        return starfire, self.predictor.getEnergy(player.castTimes.starfire, player.rawPower, player.direction)
+        return starfire, self.predictor.getEnergy(player.castTimes.starfire, player)
     end
 
     if player.inSolar then
-        if self.target.debuffs.sunfire < self.db.profile.dotRefreshTime
-                or (player.direction == "sun" and player.power > 0 and self.target.debuffs.sunfire < 10)
-                or (player.direction == "moon" and player.power <= self.db.profile.dotRefreshPower and self.target.debuffs.sunfire <= dotDur)
+        if player.target.debuffs.sunfire < self.db.profile.dotRefreshTime
+                or (player.direction == "sun" and player.power > 0 and player.target.debuffs.sunfire < 10)
+                or (player.direction == "moon" and player.power <= self.db.profile.dotRefreshPower and player.target.debuffs.sunfire <= halfCycle)
                 or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "always")
-                or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "time" and self.target.debuffs.sunfire < (dotDur * 1.5)) then
-            return sunfire, self.predictor.getEnergy(player.castTimes.sunfire, player.rawPower, player.direction)
+                or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "time" and player.target.debuffs.sunfire < (dotDur * 1.5)) then
+            return sunfire, self.predictor.getEnergy(player.castTimes.sunfire, player)
         end
 
-        local ss, eo = self:CalcStarsurgeRota(player, minStarsurgeCharges)
+        local ss, sse = self:CalcStarsurgeRota(player, minStarsurgeCharges)
         if ss then
-            return ss, eo
+            return ss, sse
         end
 
-        local afterWrath = self.predictor.getEnergy(player.castTimes.wrath, player.rawPower, player.direction)
+        local sf, sfe = self:CalcStellarFlare(player)
+        if sf then
+            return sf, sfe
+        end
+
+        local afterWrath = self.predictor.getEnergy(player.castTimes.wrath, player)
 
         if player.direction == "sun" then
             return wrath, afterWrath
         end
 
-        local afterStarfire = self.predictor.getEnergy(player.castTimes.starfire, player.rawPower, player.direction)
+        local afterStarfire = self.predictor.getEnergy(player.castTimes.starfire, player)
+
         if afterWrath <= 0 then
             return starfire, afterStarfire
         end
         return wrath, afterWrath
     else
-        if player.celestialAlignmentReady and not (self.db.profile.caOnBossOnly and not self.target.isBoss) then
-            return celestialalignment, self.predictor.getEnergy(player.castTimes.celestialalignment, player.rawPower, player.direction)
+        if player.celestialAlignmentReady
+            and ((self.db.profile.behavior.caBehavior == "boss" and player.target.isBoss) or self.db.profile.behavior.caBehavior == "always") then
+            return celestialalignment, self.predictor.getEnergy(player.castTimes.celestialalignment, player)
         end
 
-        if self.target.debuffs.moonfire < self.db.profile.dotRefreshTime
-                or (player.direction == "sun" and player.power <= self.db.profile.dotRefreshPower and self.target.debuffs.moonfire <= dotDur)
+        if player.target.debuffs.moonfire < self.db.profile.dotRefreshTime
+                or (player.direction == "sun" and player.power <= self.db.profile.dotRefreshPower and player.target.debuffs.moonfire <= halfCycle)
                 or (player.buffs.lunarPeak and self.db.profile.behavior.peakBehavior == "always")
-                or (player.buffs.lunarPeak and self.db.profile.behavior.peakBehavior == "time" and self.target.debuffs.moonfire < (dotDur * 1.5)) then
-            return moonfire, self.predictor.getEnergy(player.castTimes.moonfire, player.rawPower, player.direction)
+                or (player.buffs.lunarPeak and self.db.profile.behavior.peakBehavior == "time" and player.target.debuffs.moonfire < (halfCycle * 1.5)) then
+            return moonfire, self.predictor.getEnergy(player.castTimes.moonfire, player)
         end
 
-        local ss, eo = self:CalcStarsurgeRota(player, minStarsurgeCharges)
+        local ss, sse = self:CalcStarsurgeRota(player, minStarsurgeCharges)
         if ss then
-            return ss, eo
+            return ss, sse
         end
 
-        local afterStarfire = self.predictor.getEnergy(player.castTimes.starfire, player.rawPower, player.direction)
+        local sf, sfe = self:CalcStellarFlare(player)
+        if sf then
+            return sf, sfe
+        end
+
+        local afterStarfire = self.predictor.getEnergy(player.castTimes.starfire, player)
 
         if player.direction == "moon" then
             return starfire, afterStarfire
         end
 
-        local afterWrath = self.predictor.getEnergy(player.castTimes.wrath, player.rawPower, player.direction)
+        local afterWrath = self.predictor.getEnergy(player.castTimes.wrath, player)
 
         if afterStarfire >= 0 then
             return wrath, afterWrath
@@ -994,7 +1070,7 @@ end
 
 
 function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
-    local player = self.player
+    local player = clone(self.player)
     if newEnergy == nil then
         newEnergy = 0
         print("newEnergy was nil!")
@@ -1015,12 +1091,14 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
         player.starsurgeCharges = math.min(player.starsurgeCharges - 1, 0)
         player.buffs.starfall = 10
     elseif curCast == moonfire then
-        if player.target then
-            player.target.debuffs.moonfire = 40
+        player.target.debuffs.moonfire = 40
+        if player.buffs.celestialAlignment > 0 then
+            player.target.debuffs.sunfire = 24
         end
     elseif curCast == sunfire then
-        if player.target then
-            player.target.debuffs.sunfire = 24
+        player.target.debuffs.sunfire = 24
+        if player.buffs.celestialAlignment > 0 then
+            player.target.debuffs.moonfire = 40
         end
     elseif curCast == stellarflare then
         if player.targer then
@@ -1041,19 +1119,22 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
         player.moonkinForm = true
     end
 
-    local oldEnergy
-    if player.inLunar then
-        oldEnergy = player.power*-1
-    else
-        oldEnergy = player.power
-    end
+    player.currentCast.startPower = nil
+    player.currentCast.spell = nil
+    player.currentCast.icon = nil
+    player.currentCast.startTime = nil
+    player.currentCast.endTime = nil
+    player.currentCast.id = nil
+    player.currentCast.interruptable = nil
+
+    local oldEnergy = player.rawPower
 
     if player.direction == "moon" then
         if newEnergy >= oldEnergy then
             player.direction = "sun"
         end
     elseif player.direction == "sun" then
-        if newEnergy < oldEnergy then
+        if newEnergy <= oldEnergy then
             player.direction = "monn"
         end
     end
@@ -1083,27 +1164,38 @@ function BalanceSpellSuggest:CalcStarsurgeRota(player, minCharges)
         if player.starsurgeCharges > minCharges then
             if (player.starsurgeCharges == 3 and player.buffs.starsurgeSolarBonus > 0) then
                 if player.buffs.starfall == 0 then
-                    return starfall, self.predictor.getEnergy(player.castTimes.starfall, player.rawPower, player.direction)
+                    return starfall, self.predictor.getEnergy(player.castTimes.starfall, player)
                 else
-                    return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player.rawPower, player.direction)
+                    return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player)
                 end
             end
             if (player.starsurgeCharges == 3 or player.buffs.starsurgeSolarBonus == 0) then
-                return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player.rawPower, player.direction)
+                return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player)
             end
         end
     else -- lunar and none
         if player.starsurgeCharges > minCharges then
             if (player.starsurgeCharges == 3 and player.buffs.starsurgeLunarBonus > 0) then
                 if player.buffs.starfall == 0 then
-                    return starfall, self.predictor.getEnergy(player.castTimes.starfall, player.rawPower, player.direction)
+                    return starfall, self.predictor.getEnergy(player.castTimes.starfall, player)
                 else
-                    return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player.rawPower, player.direction)
+                    return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player)
                 end
             end
             if (player.starsurgeCharges == 3 or player.buffs.starsurgeLunarBonus == 0) then
-                return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player.rawPower, player.direction)
+                return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player)
             end
+        end
+    end
+    return nil
+end
+
+
+function BalanceSpellSuggest:CalcStellarFlare(player)
+    if player.talents.stellarflare then
+        local afterStellarFlare = self.predictor.getEnergy(player.castTimes.stellarflare, player)
+        if player.target.debuffs.stellarflare <= 5 and afterStellarFlare >= -self.db.profile.behavior.stellarFlarePowerWindow and afterStellarFlare <= self.db.profile.behavior.stellarFlarePowerWindow then
+            return stellarflare, afterStellarFlare
         end
     end
     return nil
