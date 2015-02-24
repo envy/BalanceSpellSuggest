@@ -34,6 +34,12 @@ if L then
     L["sizeDesc"] = "Size of the icons"
     L["Spacing"] = true
     L["spacingDesc"] = "Add extra space between the current and next spell icons"
+
+    L["Misc"] = true
+    L["predictedEnergyShow"] = "Show predicted energy"
+    L["predictedEnergyShowDesc"] = "Show the predicted energy inside the spell suggestions"
+    L["predictedEnergyFontSize"] = "Predicted energy font size"
+
     L["DoT Timer"] = true
     L["Enable timers"] = true
     L["Font size"] = true
