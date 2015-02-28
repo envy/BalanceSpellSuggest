@@ -23,6 +23,8 @@ if L then
     L["CABehaviorBoss"] = "Only against bosses"
     L["CABehaviorNever"] = "Never"
 
+    L["General"] = true
+
     L["Display"] = true
     L["Locked"] = true
     L["Locks the suggestion frame in place."] = true
@@ -32,13 +34,15 @@ if L then
     L["Y position from the center."] = true
     L["Size"] = true
     L["sizeDesc"] = "Size of the icons"
-    L["Spacing"] = true
-    L["spacingDesc"] = "Add extra space between the current and next spell icons"
 
     L["Misc"] = true
+
+    L["SpellIcon"] = "Spell icon"
     L["predictedEnergyShow"] = "Show predicted energy"
     L["predictedEnergyShowDesc"] = "Show the predicted energy inside the spell suggestions"
     L["predictedEnergyFontSize"] = "Predicted energy font size"
+    L["empMoonkinGlow"] = "Glow on EM"
+    L["empMoonkinGlowDesc"] = "Whether and what glow to show if your next spell is instant because of Empowered Moonkin"
 
     L["DoT Timer"] = true
     L["Enable timers"] = true
@@ -47,7 +51,9 @@ if L then
     L["Font"] = true
     L["PeakGlow"] = "Glow on Lunar/Solar Peak"
     L["PeakGlowDesc"] = "Whether and what glow to show on Lunar/Solar Peak"
-    L["PeakGlowNone"] = "Never"
-    L["PeakGlowNormal"] = "Normal"
-    L["PeakGlowSpellAlert"] = "Spell Alert"
+    L["GlowNone"] = "Never"
+    L["GlowNormal"] = "Normal"
+    L["GlowSpellAlert"] = "Spell Alert"
+    L["Spacing"] = true
+    L["spacingDesc"] = "Add extra space between the timers and the spell icon"
 end

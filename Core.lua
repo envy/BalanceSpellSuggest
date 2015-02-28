@@ -10,12 +10,12 @@ local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 
 BalanceSpellSuggest.suggestFrame = nil
 BalanceSpellSuggest.curSpellFrame = nil
-BalanceSpellSuggest.nextSpellFrame = nil
 BalanceSpellSuggest.moonfireFrame = nil
 BalanceSpellSuggest.sunfireFrame = nil
 BalanceSpellSuggest.updateTimer = nil
 
 BalanceSpellSuggest.predictor = {}
+BalanceSpellSuggest.masque = {}
 
 do
     -- Adapted from BlanacePowerTracker
@@ -33,8 +33,8 @@ do
 
     BalanceSpellSuggest.predictor.updateValues = function(euphoria)
         a, b = unpack((euphoria and euphoriaValues) or normalValues)
-        ai = 1/ a
-        bi = 1/ b
+        ai = 1/a
+        bi = 1/b
     end
 
     BalanceSpellSuggest.predictor.getEnergy = function(casttime, player)
@@ -47,6 +47,19 @@ do
         local timenow = energyToTime(startEnergy, player.direction)
         local temp = math.sin((timenow + casttime) * b) * a
         return math.min(math.max(math.floor(temp), -100), 100) * -1
+    end
+end
+
+do
+    local groups = {}
+    BalanceSpellSuggest.masque.reskin = function()
+        for k, v in pairs(groups) do
+            v:ReSkin()
+        end
+    end
+
+    BalanceSpellSuggest.masque.addGroup = function(_, name, group)
+        groups[name] = group
     end
 end
 
@@ -149,11 +162,16 @@ local options = {
             type = "group",
             order = 1,
             args = {
+                general = {
+                    name = L["General"],
+                    type = "header",
+                    order = 0,
+                },
                 locked = {
                     name = L["Locked"],
                     desc = L["Locks the suggestion frame in place."],
                     type = "toggle",
-                    order = 0,
+                    order = 1,
                     set = function(info, val) BalanceSpellSuggest:ToggleFrameLock(info, val) end,
                     get = function(_) return BalanceSpellSuggest.db.profile.locked end
                 },
@@ -161,7 +179,7 @@ local options = {
                     name = L["X position"],
                     desc = L["X position from the center."],
                     type = "range",
-                    order = 1,
+                    order = 2,
                     min = -2000.0,
                     max = 2000.0,
                     softMin = -2000.0,
@@ -177,7 +195,7 @@ local options = {
                     name = L["Y position"],
                     desc = L["Y position from the center."],
                     type = "range",
-                    order = 2,
+                    order = 3,
                     min = -2000.0,
                     max = 2000.0,
                     softMin = -2000.0,
@@ -193,7 +211,7 @@ local options = {
                     name = L["Size"],
                     desc = L["sizeDesc"],
                     type = "range",
-                    order = 3,
+                    order = 4,
                     min = 10,
                     max = 256,
                     softMin = 10,
@@ -205,24 +223,8 @@ local options = {
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.size end
                 },
-                spacing = {
-                    name = L["Spacing"],
-                    desc = L["spacingDesc"],
-                    type = "range",
-                    order = 4,
-                    min = 0,
-                    max = 1000,
-                    softMin = 0,
-                    softMax = 100,
-                    step = 1,
-                    set = function(_, val)
-                        BalanceSpellSuggest.db.profile.display.spacing = val
-                        BalanceSpellSuggest:UpdateFramePosition()
-                    end,
-                    get = function(_) return BalanceSpellSuggest.db.profile.display.spacing end
-                },
-                misc = {
-                    name = L["Misc"],
+                spellicon = {
+                    name = L["SpellIcon"],
                     type = "header",
                     order = 100,
                 },
@@ -252,15 +254,32 @@ local options = {
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.display.predictedEnergy.fontSize end
                 },
+                empMoonkinGlow = {
+                    name = L["empMoonkinGlow"],
+                    desc = L["empMoonkinGlowDesc"],
+                    type = "select",
+                    order = 103,
+                    values = { none = L["GlowNone"], normal = L["GlowNormal"], spellalert = L["GlowSpellAlert"] },
+                    set = function(_, val)
+                        BalanceSpellSuggest.db.profile.display.empMoonkinGlow = val
+                        BalanceSpellSuggest:UpdateFramePosition()
+                    end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.display.empMoonkinGlow end
+                },
+--                misc = {
+--                    name = L["Misc"],
+--                    type = "header",
+--                    order = 200,
+--                },
                 timers = {
                     name = L["DoT Timer"],
                     type = "header",
-                    order = 200,
+                    order = 300,
                 },
                 timersToggle = {
                     name = L["Enable timers"],
                     type = "toggle",
-                    order = 201,
+                    order = 301,
                     set = function(_, val)
                         BalanceSpellSuggest.db.profile.timers = val
                         BalanceSpellSuggest:UpdateFramePosition()
@@ -271,8 +290,8 @@ local options = {
                     name = L["PeakGlow"],
                     desc = L["PeakGlowDesc"],
                     type = "select",
-                    order = 202,
-                    values = { none = L["PeakGlowNone"], normal = L["PeakGlowNormal"], spellalert = L["PeakGlowSpellAlert"] },
+                    order = 302,
+                    values = { none = L["GlowNone"], normal = L["GlowNormal"], spellalert = L["GlowSpellAlert"] },
                     set = function(_, val)
                         BalanceSpellSuggest.db.profile.display.peakGlow = val
                         BalanceSpellSuggest:UpdateFramePosition()
@@ -282,7 +301,7 @@ local options = {
                 normalFontSize = {
                     name = L["Font size"],
                     type = "range",
-                    order = 203,
+                    order = 303,
                     min = 1,
                     max = 100,
                     softMin = 10,
@@ -297,7 +316,7 @@ local options = {
                 highlightFontSize = {
                     name = L["Highlight font size"],
                     type = "range",
-                    order = 204,
+                    order = 304,
                     min = 1,
                     max = 100,
                     softMin = 10,
@@ -312,7 +331,7 @@ local options = {
                 font = {
                     name = L["Font"],
                     type = "select",
-                    order = 205,
+                    order = 305,
                     dialogControl = "LSM30_Font",
                     values = AceGUIWidgetLSMlists.font,
                     set = function(_, val)
@@ -320,6 +339,22 @@ local options = {
                         BalanceSpellSuggest:RecreateAllFonts()
                     end,
                     get = function(_) return BalanceSpellSuggest.db.profile.font  end
+                },
+                spacing = {
+                    name = L["Spacing"],
+                    desc = L["spacingDesc"],
+                    type = "range",
+                    order = 306,
+                    min = 0,
+                    max = 1000,
+                    softMin = 0,
+                    softMax = 100,
+                    step = 1,
+                    set = function(_, val)
+                        BalanceSpellSuggest.db.profile.display.spacing = val
+                        BalanceSpellSuggest:UpdateFramePosition()
+                    end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.display.spacing end
                 },
             }
         }
@@ -347,11 +382,13 @@ local defaults = {
         },
         display = {
             peakGlow = "normal",
+            empMoonkinGlow = "spellalert",
             spacing = 0,
             predictedEnergy = {
                 show = true,
                 fontSize = 15,
-            }
+            },
+            showGCD = true,
         },
     }
 }
@@ -390,9 +427,6 @@ function BalanceSpellSuggest:OnInitialize()
     BalanceSpellSuggest:RegisterEvent("PLAYER_REGEN_ENABLED")
     BalanceSpellSuggest:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
     BalanceSpellSuggest:RegisterEvent("PLAYER_ENTERING_WORLD")
-
-    self.curSpell = BalanceSpellSuggest.curSpell
-    self.nextSpell = BalanceSpellSuggest.nextSpell
 
     self:SetUpFrames()
 
@@ -460,9 +494,7 @@ function BalanceSpellSuggest:OnInitialize()
 
     self:UpdateFramePosition()
 
-    if self.masque then
-        self.masque:ReSkin()
-    end
+    self.masque:reskin()
 end
 
 
@@ -494,9 +526,7 @@ end
 
 
 function BalanceSpellSuggest:PLAYER_ENTERING_WORLD()
-    if self.masque then
-        self.masque:ReSkin()
-    end
+    self.masque:reskin()
 end
 
 
@@ -553,7 +583,6 @@ function BalanceSpellSuggest:RecreateAllFonts()
     BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.moonfireFrame)
     BalanceSpellSuggest:RecreateFonts(BalanceSpellSuggest.sunfireFrame)
     self:RecreateSpellFonts(self.curSpellFrame)
-    self:RecreateSpellFonts(self.nextSpellFrame)
 end
 
 
@@ -562,22 +591,22 @@ function BalanceSpellSuggest:UpdateFramePosition()
     self.suggestFrame:SetPoint("CENTER", self.db.profile.xPosition, self.db.profile.yPosition)
 
     if self.db.profile.timers then
-        self.suggestFrame:SetWidth(self.db.profile.size * 3 + self.db.profile.display.spacing)
+        self.suggestFrame:SetWidth(self.db.profile.size * 3 + self.db.profile.display.spacing * 2)
         self.moonfireFrame:Show()
         self.sunfireFrame:Show()
     else
-        self.suggestFrame:SetWidth(self.db.profile.size * 2 + self.db.profile.display.spacing)
+        self.suggestFrame:SetWidth(self.db.profile.size)
         self.moonfireFrame:Hide()
         self.sunfireFrame:Hide()
     end
 
-    self.moonfireFrame:SetHeight(self.db.profile.size/2)
-    self.moonfireFrame:SetWidth(self.db.profile.size/2)
-    self.moonfireFrame:SetPoint("CENTER", -self.db.profile.size*0.75, self.db.profile.size/4)
+    self.moonfireFrame:SetHeight(self.db.profile.size)
+    self.moonfireFrame:SetWidth(self.db.profile.size)
+    self.moonfireFrame:SetPoint("CENTER", -self.db.profile.size - self.db.profile.display.spacing, 0)
 
-    self.sunfireFrame:SetHeight(self.db.profile.size/2)
-    self.sunfireFrame:SetWidth(self.db.profile.size/2)
-    self.sunfireFrame:SetPoint("CENTER", -self.db.profile.size*0.75, -self.db.profile.size/4)
+    self.sunfireFrame:SetHeight(self.db.profile.size)
+    self.sunfireFrame:SetWidth(self.db.profile.size)
+    self.sunfireFrame:SetPoint("CENTER", self.db.profile.size + self.db.profile.display.spacing, 0)
 
 
     self.suggestFrame:SetHeight(self.db.profile.size)
@@ -585,21 +614,14 @@ function BalanceSpellSuggest:UpdateFramePosition()
     self.curSpellFrame:SetHeight(self.db.profile.size)
     self.curSpellFrame:SetWidth(self.db.profile.size)
 
-    self.nextSpellFrame:SetHeight(self.db.profile.size)
-    self.nextSpellFrame:SetWidth(self.db.profile.size)
-    self.nextSpellFrame:SetPoint("CENTER", self.db.profile.size + self.db.profile.display.spacing, 0)
 
     if self.db.profile.display.predictedEnergy.show then
         self.curSpellFrame.text:Show()
-        self.nextSpellFrame.text:Show()
     else
         self.curSpellFrame.text:Hide()
-        self.nextSpellFrame.text:Hide()
     end
 
-    if self.masque then
-        self.masque:ReSkin()
-    end
+    self.masque:reskin()
 end
 
 
@@ -669,6 +691,7 @@ function BalanceSpellSuggest:SetUpFrames()
     self.curSpellFrame.cooldown:Show()
     self.curSpellFrame.glowTexture = self.curSpellFrame:CreateTexture(nil, "LOW", nil, 1)
     self.curSpellFrame.glowTexture:SetTexture(glowTexturePath)
+    self.curSpellFrame.glowTexture:SetTexCoord(0.082, 0.44, 0.315, 0.49)
     self.curSpellFrame.glowTexture:SetAllPoints()
     self.curSpellFrame.glowTexture:SetShown(false)
     self.curSpellFrame.text = self.curSpellFrame:CreateFontString(nil, "LOW")
@@ -677,41 +700,24 @@ function BalanceSpellSuggest:SetUpFrames()
     self.curSpellFrame.text:SetAllPoints()
     self.curSpellFrame.text:SetShown(true)
 
-    -- the frame for the next spell texture
-    self.nextSpellFrame = CreateFrame("Button", "BSS_Next", self.suggestFrame)
-    self.nextSpellFrame:SetFrameStrata("BACKGROUND")
-    self.nextSpellFrame:SetWidth(self.db.profile.size)
-    self.nextSpellFrame:SetHeight(self.db.profile.size)
-    self.nextSpellFrame:SetPoint("CENTER", self.db.profile.size + self.db.profile.display.spacing, 0)
-    self.nextSpellFrame:EnableMouse(false)
-    self.nextSpellFrame.bssTexture = self.nextSpellFrame:CreateTexture(nil, "ARTWORK", nil, 0)
-    self.nextSpellFrame.bssTexture:SetTexture(starfire)
-    self.nextSpellFrame.bssTexture:SetAllPoints()
-    self.nextSpellFrame.glowTexture = self.nextSpellFrame:CreateTexture(nil, "LOW", nil, 1)
-    self.nextSpellFrame.glowTexture:SetTexture(glowTexturePath)
-    self.nextSpellFrame.glowTexture:SetAllPoints()
-    self.nextSpellFrame.glowTexture:SetShown(false)
-    self.nextSpellFrame.text = self.nextSpellFrame:CreateFontString(nil, "LOW")
-    self.nextSpellFrame.text:SetFont(LSM:Fetch(LSM.MediaType.FONT, self.db.profile.font), self.db.profile.display.predictedEnergy.fontSize, self.db.profile.fontoptions)
-    self.nextSpellFrame.text:SetTextColor(1, 1, 1, 1)
-    self.nextSpellFrame.text:SetAllPoints()
-    self.nextSpellFrame.text:SetShown(true)
-
     -- the frame for the moonfire timer
-    self.moonfireFrame = self:CreateTimerFrame("BSS_Moonfire", moonfire, -self.db.profile.size*0.75, self.db.profile.size/4)
+    self.moonfireFrame = self:CreateTimerFrame("BSS_Moonfire", moonfire, -self.db.profile.size - self.db.profile.display.spacing, 0)
 
     -- the frame for the sunfire timer
-    self.sunfireFrame = self:CreateTimerFrame("BSS_Sunfire", sunfire, -self.db.profile.size*0.75, -self.db.profile.size/4)
+    self.sunfireFrame = self:CreateTimerFrame("BSS_Sunfire", sunfire, self.db.profile.size + self.db.profile.display.spacing, 0)
 
     -- Setup Masque
     local masque = LibStub("Masque", true)
-    if not masque then
-        return
+    if masque then
+        local spellGroup = masque:Group("Balance Spell Suggest", "Suggestion Icons")
+        spellGroup:AddButton(self.curSpellFrame, {Icon = self.curSpellFrame.bssTexture, Cooldown = self.curSpellFrame.cooldown, })
+        self.masque:addGroup("spell", spellGroup)
+        local timerGroup = masque:Group("Balance Spell Suggest", "DoT Timers")
+        timerGroup:AddButton(self.moonfireFrame, {Icon = self.moonfireFrame.bssTexture, })
+        timerGroup:AddButton(self.sunfireFrame, {Icon = self.sunfireFrame.bssTexture, })
+        self.masque:addGroup("timer", timerGroup)
+        self.masque:reskin()
     end
-    self.masque = masque:Group("Balance Spell Suggest", "Suggestion Icons")
-    self.masque:AddButton(self.curSpellFrame, {Icon = self.curSpellFrame.bssTexture, Cooldown = self.curSpellFrame.cooldown, })
-    self.masque:AddButton(self.nextSpellFrame, {Icon = self.nextSpellFrame.bssTexture})
-    self.masque:ReSkin()
 end
 
 
@@ -820,11 +826,16 @@ function BalanceSpellSuggest:UpdateFrames()
     self:UpdatePlayerState()
     self:UpdateTargetState()
 
---    if self.player.buffs.empoweredMoonkin then
---        self.nextSpellFrame.glowTexture:SetShown(true)
---    else
---        self.nextSpellFrame.glowTexture:SetShown(false)
---    end
+    if self.player.buffs.empoweredMoonkin then
+        if self.db.profile.display.empMoonkinGlow == "normal" then
+            self.curSpellFrame.glowTexture:SetShown(true)
+        elseif self.db.profile.display.empMoonkinGlow == "spellalert" then
+            ActionButton_ShowOverlayGlow(self.curSpellFrame)
+        end
+    else
+        self.curSpellFrame.glowTexture:SetShown(false)
+        ActionButton_HideOverlayGlow(self.curSpellFrame)
+    end
 
     if self.player.buffs.lunarPeak then
         if self.db.profile.display.peakGlow == "normal" then
@@ -848,26 +859,29 @@ function BalanceSpellSuggest:UpdateFrames()
         ActionButton_HideOverlayGlow(self.sunfireFrame)
     end
 
-
-    local curTexturePath, afterCurEnergy = self:curSpell()
-    local nextTexturePath, afterNextEnergy = self:nextSpell(afterCurEnergy, curTexturePath)
-
-    if curTexturePath then
-        self.curSpellFrame.bssTexture:SetTexture(curTexturePath)
-        self.curSpellFrame.bssTexture:SetAllPoints(self.curSpellFrame)
-        self.curSpellFrame.text:SetText(string.format("%.0f", afterCurEnergy))
-    end
-
-    if nextTexturePath then
-        self.nextSpellFrame.bssTexture:SetTexture(nextTexturePath)
-        self.nextSpellFrame.bssTexture:SetAllPoints(self.nextSpellFrame)
-        self.nextSpellFrame.text:SetText(string.format("%.0f", afterNextEnergy))
-    end
-
     if self.db.profile.timers then
         self:TimerFrameUpdate(self.moonfireFrame, self.player.target.debuffs.moonfire)
         self:TimerFrameUpdate(self.sunfireFrame, self.player.target.debuffs.sunfire)
     end
+
+    local curTexturePath, afterCurEnergy = self:curSpell()
+    local nextTexturePath, afterNextEnergy = self:nextSpell(afterCurEnergy, curTexturePath)
+
+    if not curTexturePath or not nextTexturePath then
+        -- now suggestions, something went wrong
+        return
+    end
+
+    if curTexturePath == self.player.currentCast.icon then
+        -- is casting the correct spell, show next spell
+        self.curSpellFrame.bssTexture:SetTexture(nextTexturePath)
+    else
+        -- not casting correct spell, show correct spell
+        self.curSpellFrame.bssTexture:SetTexture(curTexturePath)
+    end
+
+    self.curSpellFrame.bssTexture:SetAllPoints(self.curSpellFrame)
+    self.curSpellFrame.text:SetText(string.format("%.0f", afterCurEnergy))
 end
 
 
@@ -1150,11 +1164,11 @@ function BalanceSpellSuggest:curSpell(player)
             return starfire, afterStarfire
         end
 
-        local afterWrath = self.predictor.getEnergy(player.castTimes.wrath, player)
-
-        if afterWrath <= 0 then
+        if afterStarfire < 0 then
             return starfire, afterStarfire
         end
+
+        local afterWrath = self.predictor.getEnergy(player.castTimes.wrath, player)
 
         return wrath, afterWrath
     end
@@ -1179,7 +1193,7 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
         if player.inSolar then
             player.buffs.starsurgeSolarBonus = 3
         else
-            player.buffs.starsurgeLunarBouns = 2
+            player.buffs.starsurgeLunarBonus = 2
         end
     elseif curCast == starfall then
         player.starsurgeCharges = math.max(player.starsurgeCharges - 1, 0)
