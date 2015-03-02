@@ -284,7 +284,7 @@ local options = {
                             order = 1,
                             values = { none = L["GlowNone"], normal = L["GlowNormal"], spellalert = L["GlowSpellAlert"] },
                             set = function(_, val)
-                                BalanceSpellSuggest.db.profile.display.display.spellIcon.empMoonkinGlow = val
+                                BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlow = val
                                 BalanceSpellSuggest:UpdateFramePosition()
                             end,
                             get = function(_) return BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlow end
@@ -295,7 +295,7 @@ local options = {
                             type = "toggle",
                             order = 2,
                             set = function(_, val)
-                                BalanceSpellSuggest.db.profile.display.display.spellIcon.showGCD = val
+                                BalanceSpellSuggest.db.profile.display.spellIcon.showGCD = val
                             end,
                             get = function(_) return BalanceSpellSuggest.db.profile.display.spellIcon.showGCD end
                         },
@@ -940,6 +940,8 @@ function BalanceSpellSuggest:UpdateFrames()
         return
     end
 
+    self:UpdatePlayerState()
+
     -- we need a target
     if not UnitExists("target") then
         self.suggestFrame:Hide()
@@ -960,13 +962,12 @@ function BalanceSpellSuggest:UpdateFrames()
 
     self.suggestFrame:Show()
 
-    self:UpdatePlayerState()
     self:UpdateTargetState()
 
     if self.player.buffs.empoweredMoonkin then
-        if self.db.profile.display.display.spellIcon.empMoonkinGlow == "normal" then
+        if self.db.profile.display.spellIcon.empMoonkinGlow == "normal" then
             self.curSpellFrame.glowTexture:SetShown(true)
-        elseif self.db.profile.display.display.spellIcon.empMoonkinGlow == "spellalert" then
+        elseif self.db.profile.display.spellIcon.empMoonkinGlow == "spellalert" then
             ActionButton_ShowOverlayGlow(self.curSpellFrame)
         end
     else
@@ -1157,9 +1158,15 @@ function BalanceSpellSuggest:UpdatePlayerCastTimes()
     local _,_,_,wrathct = GetSpellInfo(5176)
     local _,_,_,stellarflarect = GetSpellInfo(152221)
     local curHaste = UnitSpellHaste("player")
-    self.player.castTimes.starfire = math.max(starfirect / 1000, 1)
-    self.player.castTimes.wrath = math.max(wrathct / 1000, 1)
-    self.player.castTimes.stellarflare = math.max(stellarflarect / 1000, 1)
+    if self.player.buffs.empMoonkin then
+        self.player.castTimes.starfire = math.max(self.baseGCD * (1 - curHaste), 1)
+        self.player.castTimes.wrath = math.max(self.baseGCD * (1 - curHaste), 1)
+        self.player.castTimes.stellarflare = math.max(self.baseGCD * (1 - curHaste), 1)
+    else
+        self.player.castTimes.starfire = math.max(starfirect / 1000, 1)
+        self.player.castTimes.wrath = math.max(wrathct / 1000, 1)
+        self.player.castTimes.stellarflare = math.max(stellarflarect / 1000, 1)
+    end
     self.player.castTimes.moonfire = math.max(self.baseGCD * (1 - curHaste), 1)
     self.player.castTimes.sunfire = math.max(self.baseGCD * (1 - curHaste), 1)
     self.player.castTimes.starsurge = math.max(self.baseGCD * (1 - curHaste), 1)
@@ -1239,7 +1246,7 @@ function BalanceSpellSuggest:curSpell(player)
     end
 
     -- TODO opening rotation
-    if not player.inCombat then
+    if not player.inCombat and player.power == 0 then
         return starfire, 0
     end
 
@@ -1254,7 +1261,9 @@ function BalanceSpellSuggest:curSpell(player)
         if ss then
             return ss, sse
         end
-
+        if player.buffs.starsurgeSolarBonus > 0 then
+            return wrath, self.predictor.getEnergy(player.castTimes.wrath, player)
+        end
         return starfire, self.predictor.getEnergy(player.castTimes.starfire, player)
     end
 
