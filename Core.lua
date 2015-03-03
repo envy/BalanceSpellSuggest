@@ -472,7 +472,8 @@ local defaults = {
                 size = 64,
                 font = "Friz Quadrata TT",
                 fontoptions = "OUTLINE",
-                wrongCastColor = {1, 166/255, 0, 1},
+                --wrongCastColor = {1, 166/255, 0, 1},
+                wrongCastColor = {1, 1, 1, 1},
             },
             spellIcon = {
                 empMoonkinGlow = "spellalert",
@@ -1294,10 +1295,17 @@ function BalanceSpellSuggest:curSpell(player)
 
         local afterStarfire = self.predictor.getEnergy(player.castTimes.starfire, player)
 
-        if afterWrath <= 0 then
+        if afterWrath >= 0 and afterStarfire >= 0 then
+            return wrath, afterWrath
+        elseif afterWrath >= 0 and afterStarfire < 0 then
+            if math.abs(afterStarfire) > afterWrath then
+                return wrath, afterWrath
+            else
+                return starfire, afterStarfire
+            end
+        else
             return starfire, afterStarfire
         end
-        return wrath, afterWrath
     else
         if player.celestialAlignmentReady
             and ((self.db.profile.behavior.caBehavior == "boss" and player.target.isBoss) or self.db.profile.behavior.caBehavior == "always") then
@@ -1327,13 +1335,19 @@ function BalanceSpellSuggest:curSpell(player)
             return starfire, afterStarfire
         end
 
-        if afterStarfire < 0 then
-            return starfire, afterStarfire
-        end
-
         local afterWrath = self.predictor.getEnergy(player.castTimes.wrath, player)
 
-        return wrath, afterWrath
+        if afterStarfire <= 0 and afterWrath <= 0 then
+            return starfire, afterStarfire
+        elseif afterStarfire <= 0 and afterWrath > 0 then
+            if math.abs(afterStarfire) > afterWrath then
+                return starfire, afterStarfire
+            else
+                return wrath, afterWrath
+            end
+        else
+            return wrath, afterWrath
+        end
     end
     print("returned nil, should not happen!")
     return nil, 0
