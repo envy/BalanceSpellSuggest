@@ -42,6 +42,7 @@ L["X position from the center."] = true
 L["Y position"] = true
 L["Y position from the center."] = true
 L["Size"] = true
+L["Opacity"] = true
 L["sizeDesc"] = "Size of the icons"
 
 L["SpellIcon"] = "Spell icon"

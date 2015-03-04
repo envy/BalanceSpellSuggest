@@ -246,10 +246,26 @@ local options = {
                             end,
                             get = function(_) return BalanceSpellSuggest.db.profile.display.general.size end
                         },
+                        opacity = {
+                            name = L["Opacity"],
+                            type = "range",
+                            order = 5,
+                            min = 0,
+                            max = 1,
+                            softMin = 0.1,
+                            softMax = 1,
+                            step = 0.01,
+                            isPercent = true,
+                            set = function(_, val)
+                                BalanceSpellSuggest.db.profile.display.general.opacity = val
+                                BalanceSpellSuggest:UpdateFramePosition()
+                            end,
+                            get = function(_) return BalanceSpellSuggest.db.profile.display.general.opacity end
+                        },
                         font = {
                             name = L["Font"],
                             type = "select",
-                            order = 5,
+                            order = 6,
                             dialogControl = "LSM30_Font",
                             values = AceGUIWidgetLSMlists.font,
                             set = function(_, val)
@@ -262,12 +278,12 @@ local options = {
                             name = L["wrongCastColor"],
                             desc = L["wrongCastColorDesc"],
                             type = "color",
-                            order = 6,
+                            order = 7,
                             get = function(_)
                                 return unpack(BalanceSpellSuggest.db.profile.display.general.wrongCastColor)
                             end,
-                            set = function(_, r, g, b, a)
-                                BalanceSpellSuggest.db.profile.display.general.wrongCastColor = {r, g, b, a }
+                            set = function(_, r, g, b, _)
+                                BalanceSpellSuggest.db.profile.display.general.wrongCastColor = {r, g, b, 1}
                             end
                         },
                     },
@@ -474,6 +490,7 @@ local defaults = {
                 fontoptions = "OUTLINE",
                 --wrongCastColor = {1, 166/255, 0, 1},
                 wrongCastColor = {1, 1, 1, 1},
+                opacity = 1.0,
             },
             spellIcon = {
                 empMoonkinGlow = "spellalert",
@@ -575,6 +592,7 @@ function BalanceSpellSuggest:OnInitialize()
         inCombat = false,
         power = 0,
         rawPower = 0,
+        atPeak = false,
         direction = "none",
         inLunar = false,
         inSolar = false,
@@ -735,6 +753,11 @@ function BalanceSpellSuggest:UpdateFramePosition()
         self.curSpellFrame.textAN:Hide()
     end
 
+    local frames = { self.suggestFrame:GetChildren() }
+    for _, frame in ipairs(frames) do
+        frame:SetAlpha(self.db.profile.display.general.opacity)
+    end
+
     self.masque:reskin()
 end
 
@@ -750,7 +773,7 @@ function BalanceSpellSuggest:ToggleFrameLock(_, val)
         self.suggestFrame:SetScript("OnDragStop", function() end)
         local frames = { self.suggestFrame:GetChildren() }
         for _, frame in ipairs(frames) do
-            frame.bssTexture:SetVertexColor(1.0, 1.0, 1.0, 1.0)
+            frame:SetAlpha(self.db.profile.display.general.opacity)
         end
     else
         self.suggestFrame:SetFrameStrata("MEDIUM")
@@ -760,7 +783,7 @@ function BalanceSpellSuggest:ToggleFrameLock(_, val)
         self.suggestFrame:SetScript("OnDragStop", function(self, button) BalanceSpellSuggest:StopMoving(self, button) end)
         local frames = { self.suggestFrame:GetChildren() }
         for _, frame in ipairs(frames) do
-            frame.bssTexture:SetVertexColor(1.0, 1.0, 1.0, 0.5)
+            frame:SetAlpha(0.5)
         end
     end
 end
@@ -1273,7 +1296,7 @@ function BalanceSpellSuggest:curSpell(player)
                 or (player.direction == "sun" and player.power > 0 and player.target.debuffs.sunfire < 10)
                 or (player.direction == "moon" and player.power <= self.db.profile.behavior.dotRefreshPower and player.target.debuffs.sunfire <= halfCycle)
                 or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "always")
-                or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "time" and player.target.debuffs.sunfire < (dotDur * 1.5)) then
+                or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "time" and player.target.debuffs.sunfire < (halfCycle * 1.5)) then
             return sunfire, self.predictor.getEnergy(player.castTimes.sunfire, player)
         end
 
@@ -1380,11 +1403,13 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
         if player.buffs.celestialAlignment > 0 then
             player.target.debuffs.sunfire = 24
         end
+        player.buffs.lunarPeak = false
     elseif curCast == sunfire then
         player.target.debuffs.sunfire = 24
         if player.buffs.celestialAlignment > 0 then
             player.target.debuffs.moonfire = 40
         end
+        player.buffs.solarPeak = false
     elseif curCast == stellarflare then
         player.target.debuffs.stellarflare = 20
     elseif curCast == starfire then
@@ -1418,7 +1443,20 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
         end
     elseif player.direction == "sun" then
         if newEnergy <= oldEnergy then
-            player.direction = "monn"
+            player.direction = "moon"
+        end
+    end
+
+    if not player.atPeak then
+        if newEnergy == -100 then
+            player.buffs.lunarPeak = true
+        elseif newEnergy == 100 then
+            player.buffs.solarPeak = true
+        end
+        player.atPeak = true
+    else
+        if oldEnergy > -100 or oldEnergy < 100 then
+            player.atPeak = false
         end
     end
 
