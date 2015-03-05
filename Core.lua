@@ -39,7 +39,7 @@ do
 
     BalanceSpellSuggest.predictor.getEnergy = function(casttime, player)
         local startEnergy
-        if player.currentCast.startPower ~= nil and player.currentCast.isCorrect then
+        if player.currentCast.startPower ~= nil then
             startEnergy = player.currentCast.startPower
         else
             startEnergy = player.rawPower
@@ -488,8 +488,8 @@ local defaults = {
                 size = 64,
                 font = "Friz Quadrata TT",
                 fontoptions = "OUTLINE",
-                --wrongCastColor = {1, 166/255, 0, 1},
-                wrongCastColor = {1, 1, 1, 1},
+                wrongCastColor = {1, 166/255, 0, 1},
+                --wrongCastColor = {1, 1, 1, 1},
                 opacity = 1.0,
             },
             spellIcon = {
@@ -573,6 +573,7 @@ function BalanceSpellSuggest:OnInitialize()
         talents = {
             euphoria = false,
             stellarflare = false,
+            balanceofpower = false,
             incarnation = false,
         },
         castTimes = {
@@ -602,6 +603,7 @@ function BalanceSpellSuggest:OnInitialize()
             startTime = nil,
             startPower = nil,
             endTime = nil,
+            castTime = nil,
             id = nil,
             interruptable = nil,
             isCorrect = false,
@@ -1037,18 +1039,27 @@ function BalanceSpellSuggest:UpdateFrames()
     if curTexturePath == self.player.currentCast.icon then
         -- is casting the correct spell, show next spell
         self.player.currentCast.isCorrect = true
-        self.curSpellFrame.bssTexture:SetTexture(nextTexturePath)
-        self.curSpellFrame.bssTexture:SetVertexColor(1, 1, 1, 1)
     elseif self.player.currentCast.icon == nil then
         -- not casting anything
         self.player.currentCast.isCorrect = false
-        self.curSpellFrame.bssTexture:SetTexture(curTexturePath)
-        self.curSpellFrame.bssTexture:SetVertexColor(1, 1, 1, 1)
     else
         -- not casting correct spell, show correct spell
+        afterCurEnergy = self.predictor.getEnergy(self.player.currentCast.castTime, self.player)
+        nextTexturePath, afterNextEnergy = self:nextSpell(afterCurEnergy, self.player.currentCast.icon)
         self.player.currentCast.isCorrect = false
-        self.curSpellFrame.bssTexture:SetTexture(curTexturePath)
-        self.curSpellFrame.bssTexture:SetVertexColor(unpack(self.db.profile.display.general.wrongCastColor))
+    end
+
+    if self.player.currentCast.isCorrect then
+        self.curSpellFrame.bssTexture:SetTexture(nextTexturePath)
+        self.curSpellFrame.bssTexture:SetVertexColor(1, 1, 1, 1)
+    else
+        if self.player.currentCast.icon == nil then
+            self.curSpellFrame.bssTexture:SetTexture(curTexturePath)
+            self.curSpellFrame.bssTexture:SetVertexColor(1, 1, 1, 1)
+        else
+            self.curSpellFrame.bssTexture:SetTexture(nextTexturePath)
+            self.curSpellFrame.bssTexture:SetVertexColor(unpack(self.db.profile.display.general.wrongCastColor))
+        end
     end
 
     if afterCurEnergy > 0 then
@@ -1091,6 +1102,9 @@ function BalanceSpellSuggest:UpdatePlayerState()
 
     local _, _, _, t1, t2  = GetTalentInfo(7, 2, GetActiveSpecGroup())
     self.player.talents.stellarflare = t1 and t2
+
+    local _, _, _, t1, t2  = GetTalentInfo(7, 3, GetActiveSpecGroup())
+    self.player.talents.balanceofpower = t1 and t2
 
     local _,_,_,_,_,_,emET = UnitBuff("player", empoweredMoonkin)
     self.player.buffs.empoweredMoonkin = emET ~= nil
@@ -1144,6 +1158,11 @@ function BalanceSpellSuggest:UpdatePlayerState()
     self.player.currentCast.icon = icon
     self.player.currentCast.startTime = startTime
     self.player.currentCast.endTime = endTime
+    if self.player.currentCast.endTime ~= nil then
+        self.player.currentCast.castTime = (endTime - startTime)/1000
+    else
+        self.player.currentCast.castTime = nil
+    end
     self.player.currentCast.id = id
     self.player.currentCast.interruptable = interrupt
 
@@ -1404,12 +1423,18 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
             player.target.debuffs.sunfire = 24
         end
         player.buffs.lunarPeak = false
+        if player.talents.balanceofpower then
+            player.target.debuffs.moonfire = player.target.debuffs.moonfire + 6
+        end
     elseif curCast == sunfire then
         player.target.debuffs.sunfire = 24
         if player.buffs.celestialAlignment > 0 then
             player.target.debuffs.moonfire = 40
         end
         player.buffs.solarPeak = false
+        if player.talents.balanceofpower then
+            player.target.debuffs.sunfire = player.target.debuffs.sunfire + 4
+        end
     elseif curCast == stellarflare then
         player.target.debuffs.stellarflare = 20
     elseif curCast == starfire then
@@ -1432,6 +1457,7 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
     player.currentCast.icon = nil
     player.currentCast.startTime = nil
     player.currentCast.endTime = nil
+    player.currentCast.castTime = nil
     player.currentCast.id = nil
     player.currentCast.interruptable = nil
 
