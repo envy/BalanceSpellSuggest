@@ -807,9 +807,9 @@ function BalanceSpellSuggest:UpdateFramePosition()
     local frames = { self.suggestFrame:GetChildren() }
     for _, frame in ipairs(frames) do
         if self.db.profile.display.general.locked then
-            frame:SetAlpha(0.5)
-        else
             frame:SetAlpha(self.db.profile.display.general.opacity)
+        else
+            frame:SetAlpha(0.5)
         end
     end
 
