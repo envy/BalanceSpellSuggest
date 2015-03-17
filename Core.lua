@@ -22,12 +22,24 @@ do
     local a, ai, b, bi
     local euphoriaValues = {104.5, 1/3.2 }
     local normalValues = {104.5, math.pi/20 }
+    local syncTime, inPeak, syncCycleTime = 0, false, 0
 
     local energyToTime = function(energy, direction)
         if direction == "sun" then
             return ((math.asin(energy * ai) + math.pi) * bi)
         else -- lunar and none
             return (math.asin(energy * ai) * bi * -1)
+        end
+    end
+
+    local sync = function(player)
+        local power = UnitPower("player", 8)
+        if not inPeak and math.abs(power) == 100 then
+            syncTime = GetTime()
+            syncCycleTime = energyToTime(power, GetEclipseDirection())
+            inPeak = true
+        elseif inPeak and math.abs(power) < 100 then
+            inPeak = false
         end
     end
 
@@ -38,13 +50,22 @@ do
     end
 
     BalanceSpellSuggest.predictor.getEnergy = function(casttime, player)
-        local startEnergy
+        local startEnergy, startTime
         if player.currentCast.startPower ~= nil then
+            startTime = player.currentCast.startTime / 1000
             startEnergy = player.currentCast.startPower
+            casttime = player.currentCast.castTime
         else
+            startTime = player.time
             startEnergy = player.rawPower
         end
-        local timenow = energyToTime(startEnergy, player.direction)
+        sync()
+        local timenow
+        if (not inPeak) or (inPeak and startTime < syncTime) then
+            timenow = energyToTime(startEnergy, player.direction)
+        else
+            timenow = syncCycleTime + (startTime - syncTime)
+        end
         local temp = math.sin((timenow + casttime) * b) * a
         return math.min(math.max(math.floor(temp), -100), 100) * -1
     end
@@ -64,7 +85,7 @@ do
 end
 
 -- https://gist.github.com/MihailJP/3931841
-local function clone (t) -- deep-copy a table
+local function clone(t) -- deep-copy a table
     if type(t) ~= "table" then return t end
     local meta = getmetatable(t)
     local target = {}
@@ -78,6 +99,15 @@ local function clone (t) -- deep-copy a table
     setmetatable(target, meta)
     return target
 end
+
+local function lunarBonus(e)
+    return (-e/2)+50
+end
+
+local function solarBonus(e)
+    return (e/2)+50
+end
+
 
 local options = {
     name = "Balance Spell Suggest",
@@ -274,18 +304,6 @@ local options = {
                             end,
                             get = function(_) return BalanceSpellSuggest.db.profile.display.general.font  end
                         },
-                        wrongCastColor = {
-                            name = L["wrongCastColor"],
-                            desc = L["wrongCastColorDesc"],
-                            type = "color",
-                            order = 7,
-                            get = function(_)
-                                return unpack(BalanceSpellSuggest.db.profile.display.general.wrongCastColor)
-                            end,
-                            set = function(_, r, g, b, _)
-                                BalanceSpellSuggest.db.profile.display.general.wrongCastColor = {r, g, b, 1}
-                            end
-                        },
                     },
                 },
                 spellicon = {
@@ -305,11 +323,23 @@ local options = {
                             end,
                             get = function(_) return BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlow end
                         },
+                        empMoonkinGlowWhen = {
+                            name = L["empMoonkinGlowWhen"],
+                            desc = L["empMoonkinGlowWhenDesc"],
+                            type = "select",
+                            order = 2,
+                            values = { all = L["GlowWhenAll"], onlyCasts = L["GlowWhenOnlyCasts"] },
+                            set = function(_, val)
+                                BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlowWhen = val
+                                BalanceSpellSuggest:UpdateFramePosition()
+                            end,
+                            get = function(_) return BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlowWhen end
+                        },
                         showGCD = {
                             name = L["showGCD"],
                             desc = L["showGCDDesc"],
                             type = "toggle",
-                            order = 2,
+                            order = 3,
                             set = function(_, val)
                                 BalanceSpellSuggest.db.profile.display.spellIcon.showGCD = val
                             end,
@@ -318,7 +348,7 @@ local options = {
                         predictedEnergy = {
                             name = L["predictedEnergyDisplay"],
                             type = "group",
-                            order = 3,
+                            order = 4,
                             inline = true,
                             args = {
                                 show = {
@@ -488,12 +518,11 @@ local defaults = {
                 size = 64,
                 font = "Friz Quadrata TT",
                 fontoptions = "OUTLINE",
-                wrongCastColor = {1, 166/255, 0, 1},
-                --wrongCastColor = {1, 1, 1, 1},
                 opacity = 1.0,
             },
             spellIcon = {
                 empMoonkinGlow = "spellalert",
+                empMoonkinGlowWhen = "all",
                 showGCD = true,
                 predictedEnergy = {
                     show = true,
@@ -535,6 +564,25 @@ local solarpeakname = GetSpellInfo(171744)
 local empoweredMoonkin = GetSpellInfo(157228)
 
 local glowTexturePath = "Interface\\SpellActivationOverlay\\IconAlert"
+
+
+local function iconToCastTimeName(i)
+    if i == starfire then
+        return "starfire"
+    elseif i == wrath then
+        return "wrath"
+    elseif i == stellarflare then
+        return "stellarflare"
+    elseif i == celestialalignment then
+        return "celestialalignment"
+    else
+        return "gcd"
+    end
+end
+
+local function isNotInstant(n)
+    return n == starfire or n == wrath or n == stellarflare
+end
 
 -- Always called
 function BalanceSpellSuggest:OnInitialize()
@@ -591,6 +639,7 @@ function BalanceSpellSuggest:OnInitialize()
             naturesvigil = 0, -- no GCD
         },
         inCombat = false,
+        time = 0,
         power = 0,
         rawPower = 0,
         atPeak = false,
@@ -951,6 +1000,7 @@ function BalanceSpellSuggest:StopMoving(frame, _)
         if point == "CENTER" then
             self.db.profile.display.general.xPosition = x
             self.db.profile.display.general.yPosition = y
+            self:UpdateFramePosition()
             break
         end
     end
@@ -989,17 +1039,6 @@ function BalanceSpellSuggest:UpdateFrames()
     self.suggestFrame:Show()
 
     self:UpdateTargetState()
-
-    if self.player.buffs.empoweredMoonkin then
-        if self.db.profile.display.spellIcon.empMoonkinGlow == "normal" then
-            self.curSpellFrame.glowTexture:SetShown(true)
-        elseif self.db.profile.display.spellIcon.empMoonkinGlow == "spellalert" then
-            ActionButton_ShowOverlayGlow(self.curSpellFrame)
-        end
-    else
-        self.curSpellFrame.glowTexture:SetShown(false)
-        ActionButton_HideOverlayGlow(self.curSpellFrame)
-    end
 
     if self.player.buffs.lunarPeak then
         if self.db.profile.display.dotTimer.peakGlow == "normal" then
@@ -1055,10 +1094,8 @@ function BalanceSpellSuggest:UpdateFrames()
     else
         if self.player.currentCast.icon == nil then
             self.curSpellFrame.bssTexture:SetTexture(curTexturePath)
-            self.curSpellFrame.bssTexture:SetVertexColor(1, 1, 1, 1)
         else
             self.curSpellFrame.bssTexture:SetTexture(nextTexturePath)
-            self.curSpellFrame.bssTexture:SetVertexColor(unpack(self.db.profile.display.general.wrongCastColor))
         end
     end
 
@@ -1088,11 +1125,38 @@ function BalanceSpellSuggest:UpdateFrames()
     else
         self.curSpellFrame.textAN:SetText(string.format("%.0f", afterNextEnergy))
     end
+
+    if self.player.buffs.empoweredMoonkin then
+        if self.db.profile.display.spellIcon.empMoonkinGlow == "normal" then
+            if self.db.profile.display.spellIcon.empMoonkinGlowWhen == "onlyCasts" then
+                if isNotInstant(curTexturePath) then
+                    self.curSpellFrame.glowTexture:SetShown(true)
+                else
+                    self.curSpellFrame.glowTexture:SetShown(false)
+                end
+            else
+                self.curSpellFrame.glowTexture:SetShown(true)
+            end
+        elseif self.db.profile.display.spellIcon.empMoonkinGlow == "spellalert" then
+            if self.db.profile.display.spellIcon.empMoonkinGlowWhen == "onlyCasts" then
+                if isNotInstant(curTexturePath) then
+                    ActionButton_ShowOverlayGlow(self.curSpellFrame)
+                else
+                    ActionButton_HideOverlayGlow(self.curSpellFrame)
+                end
+            else
+                ActionButton_ShowOverlayGlow(self.curSpellFrame)
+            end
+        end
+    else
+        self.curSpellFrame.glowTexture:SetShown(false)
+        ActionButton_HideOverlayGlow(self.curSpellFrame)
+    end
 end
 
 
 function BalanceSpellSuggest:UpdatePlayerState()
-    local time = GetTime()
+    self.player.time = GetTime()
 
     local _,_,_,mfC = UnitBuff("player", moonkinformname)
     self.player.moonkinForm = mfC ~= nil
@@ -1111,7 +1175,7 @@ function BalanceSpellSuggest:UpdatePlayerState()
 
     local _,_,_,_,_,_,caET = UnitBuff("player", celestialalignmentname)
     if caET then
-        self.player.buffs.celestialAlignment = caET - time
+        self.player.buffs.celestialAlignment = caET - self.player.time
     else
         self.player.buffs.celestialAlignment = 0
     end
@@ -1187,7 +1251,7 @@ function BalanceSpellSuggest:UpdatePlayerState()
 
     local _,_,_,_,_,_,sfET = UnitBuff("player", starfallname)
     if sfET then
-        self.player.buffs.starfall = sfET - time
+        self.player.buffs.starfall = sfET - self.player.time
     else
         self.player.buffs.starfall = 0
     end
@@ -1337,14 +1401,8 @@ function BalanceSpellSuggest:curSpell(player)
 
         local afterStarfire = self.predictor.getEnergy(player.castTimes.starfire, player)
 
-        if afterWrath >= 0 and afterStarfire >= 0 then
+        if solarBonus(afterWrath) >= lunarBonus(afterStarfire) then
             return wrath, afterWrath
-        elseif afterWrath >= 0 and afterStarfire < 0 then
-            if math.abs(afterStarfire) > afterWrath then
-                return wrath, afterWrath
-            else
-                return starfire, afterStarfire
-            end
         else
             return starfire, afterStarfire
         end
@@ -1379,16 +1437,11 @@ function BalanceSpellSuggest:curSpell(player)
 
         local afterWrath = self.predictor.getEnergy(player.castTimes.wrath, player)
 
-        if afterStarfire <= 0 and afterWrath <= 0 then
-            return starfire, afterStarfire
-        elseif afterStarfire <= 0 and afterWrath > 0 then
-            if math.abs(afterStarfire) > afterWrath then
-                return starfire, afterStarfire
-            else
-                return wrath, afterWrath
-            end
-        else
+        if solarBonus(afterWrath) > lunarBonus(afterStarfire) then
+            --print("e: " .. player.rawPower .. " d: " .. player.direction .. " aS: " .. afterStarfire .. " aW: " .. afterWrath)
             return wrath, afterWrath
+        else
+            return starfire, afterStarfire
         end
     end
     print("returned nil, should not happen!")
@@ -1450,6 +1503,12 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
         player.celestialAlignmentReady = false
     elseif curCast == moonkinform then
         player.moonkinForm = true
+    end
+
+    if player.currentCast.icon == nil then
+        player.time = player.time + player.castTimes[iconToCastTimeName(curCast)]
+    else
+        player.time = (player.currentCast.startTime / 1000) + player.currentCast.castTime
     end
 
     player.currentCast.startPower = nil
