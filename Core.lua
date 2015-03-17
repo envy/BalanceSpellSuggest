@@ -806,7 +806,11 @@ function BalanceSpellSuggest:UpdateFramePosition()
 
     local frames = { self.suggestFrame:GetChildren() }
     for _, frame in ipairs(frames) do
-        frame:SetAlpha(self.db.profile.display.general.opacity)
+        if self.db.profile.display.general.locked then
+            frame:SetAlpha(0.5)
+        else
+            frame:SetAlpha(self.db.profile.display.general.opacity)
+        end
     end
 
     self.masque:reskin()
@@ -996,13 +1000,12 @@ function BalanceSpellSuggest:StopMoving(frame, _)
 
     -- get the coordinates for the offset from center
     for pointnum = 1, frame:GetNumPoints() do
-        local point, _, _, x, y = frame:GetPoint(pointnum)
-        if point == "CENTER" then
-            self.db.profile.display.general.xPosition = x
-            self.db.profile.display.general.yPosition = y
-            self:UpdateFramePosition()
-            break
-        end
+        --local point, relTo, relPoint, x, y = frame:GetPoint(pointnum)
+        local xc, yc = frame:GetCenter()
+        local w, h = GetScreenWidth(), GetScreenHeight()
+        local wh, hh = w/2, h/2
+        self.db.profile.display.general.xPosition = -(wh - xc)
+        self.db.profile.display.general.yPosition = -(hh - yc)
     end
 
 end
