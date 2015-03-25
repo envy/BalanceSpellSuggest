@@ -661,6 +661,10 @@ function BalanceSpellSuggest:OnInitialize()
             interruptable = nil,
             isCorrect = false,
         },
+        gcd = {
+            start = 0,
+            duration = 0,
+        },
         target = {
             debuffs = {
                 moonfire = 0,
@@ -720,7 +724,9 @@ function BalanceSpellSuggest:UNIT_SPELLCAST_SUCCEEDED(_, unit, name, rank, count
         return
     end
     if self.db.profile.display.spellIcon.showGCD and self.player.castTimes[string.lower(name)] ~= nil then
-        self.curSpellFrame.cooldown:SetCooldown(GetTime(), self.player.castTimes.gcd)
+        self.player.gcd.start = GetTime()
+        self.player.gcd.duration = self.player.castTimes.gcd
+        self.curSpellFrame.cooldown:SetCooldown(self.player.gcd.start, self.player.gcd.duration)
     end
 end
 
@@ -1082,26 +1088,39 @@ function BalanceSpellSuggest:UpdateFrames()
         return
     end
 
+    local gcd = -1
     if curTexturePath == self.player.currentCast.icon then
         -- is casting the correct spell, show next spell
         self.player.currentCast.isCorrect = true
     elseif self.player.currentCast.icon == nil then
-        -- not casting anything
+        -- not casting anything, calc next spell based on energy after gcd end
+        gcd = self.player.gcd.start + self.player.gcd.duration - self.player.time
+        if gcd > 0 then
+            afterCurEnergy = self.predictor.getEnergy(gcd, self.player)
+            nextTexturePath, afterNextEnergy = self:nextSpell(afterCurEnergy, nil)
+        end
         self.player.currentCast.isCorrect = false
+
     else
-        -- not casting correct spell, show correct spell
+        -- not casting correct spell, show next spell based on current spell
         afterCurEnergy = self.predictor.getEnergy(self.player.currentCast.castTime, self.player)
         nextTexturePath, afterNextEnergy = self:nextSpell(afterCurEnergy, self.player.currentCast.icon)
         self.player.currentCast.isCorrect = false
     end
 
     if self.player.currentCast.isCorrect then
+        -- is casting the correct spell, show next spell
         self.curSpellFrame.bssTexture:SetTexture(nextTexturePath)
-        self.curSpellFrame.bssTexture:SetVertexColor(1, 1, 1, 1)
     else
         if self.player.currentCast.icon == nil then
-            self.curSpellFrame.bssTexture:SetTexture(curTexturePath)
+            -- not casting anything
+            if gcd > 0 then
+                self.curSpellFrame.bssTexture:SetTexture(nextTexturePath)
+            else
+                self.curSpellFrame.bssTexture:SetTexture(curTexturePath)
+            end
         else
+            -- not casting correct spell, show next spell based on current spell
             self.curSpellFrame.bssTexture:SetTexture(nextTexturePath)
         end
     end
