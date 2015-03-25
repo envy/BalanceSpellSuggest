@@ -64,7 +64,11 @@ do
         if (not inPeak) or (inPeak and startTime < syncTime) then
             timenow = energyToTime(startEnergy, player.direction)
         else
-            timenow = syncCycleTime + (startTime - syncTime)
+            local caDiff = 0
+            if player.buffs.celestialAlignment > 0 then
+                caDiff = 15 - player.buffs.celestialAlignment
+            end
+            timenow = syncCycleTime + (startTime - syncTime) - caDiff
         end
         local temp = math.sin((timenow + casttime) * b) * a
         return math.min(math.max(math.floor(temp), -100), 100) * -1
