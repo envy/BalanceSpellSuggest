@@ -194,6 +194,14 @@ local options = {
                     set = function(_, val) BalanceSpellSuggest.db.profile.behavior.leaveOneSSCharge = val end,
                     get = function(_) return BalanceSpellSuggest.db.profile.behavior.leaveOneSSCharge end
                 },
+                starfallOn3StarsurgeCharges = {
+                    name = L["starfallOn3StarsurgeCharges"],
+                    desc = L["starfallOn3StarsurgeChargesDesc"],
+                    type = "toggle",
+                    order = 5,
+                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.starfallOn3StarsurgeCharges = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.starfallOn3StarsurgeCharges end
+                },
                 caBehavior = {
                     name = L["CA behavior"],
                     desc = L["CABehaviorDesc"],
@@ -511,6 +519,7 @@ local defaults = {
             dotRefreshTime = 7,
             stellarFlarePowerWindow = 20,
             leaveOneSSCharge = true,
+            starfallOn3StarsurgeCharges = true,
             peakBehavior = "time",
             caBehavior = "boss",
         },
@@ -1369,7 +1378,7 @@ function BalanceSpellSuggest:curSpell(player)
         if ss then
             return ss, sse
         end
-        if player.buffs.starsurgeSolarBonus > 0 then
+        if  player.inSolar and player.buffs.starsurgeSolarBonus > 0 then
             return wrath, self.predictor.getEnergy(player.castTimes.wrath, player)
         end
         return starfire, self.predictor.getEnergy(player.castTimes.starfire, player)
@@ -1565,7 +1574,7 @@ function BalanceSpellSuggest:CalcStarsurgeRota(player, minCharges)
     if player.inSolar then
         if player.starsurgeCharges > minCharges then
             if (player.starsurgeCharges == 3 and player.buffs.starsurgeSolarBonus > 0) then
-                if player.buffs.starfall == 0 then
+                if player.buffs.starfall == 0 and self.db.profile.behavior.starfallOn3StarsurgeCharges then
                     return starfall, self.predictor.getEnergy(player.castTimes.starfall, player)
                 else
                     return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player)
@@ -1578,7 +1587,7 @@ function BalanceSpellSuggest:CalcStarsurgeRota(player, minCharges)
     else -- lunar and none
         if player.starsurgeCharges > minCharges then
             if (player.starsurgeCharges == 3 and player.buffs.starsurgeLunarBonus > 0) then
-                if player.buffs.starfall == 0 then
+                if player.buffs.starfall == 0 and self.db.profile.behavior.starfallOn3StarsurgeCharges then
                     return starfall, self.predictor.getEnergy(player.castTimes.starfall, player)
                 else
                     return starsurge, self.predictor.getEnergy(player.castTimes.starsurge, player)

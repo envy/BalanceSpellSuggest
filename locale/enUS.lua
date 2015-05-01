@@ -21,6 +21,8 @@ L["Stellar Flare power window"] = true
 L["sfPowerWindowDesc"] = "Energy window in which Stellar Flare should be suggested to finish casting"
 L["Leave one SS charge"] = true
 L["leaveOneSSChargeDesc"] = "Leave at least one charge of Starsurge for manual casting of Starfall."
+L["starfallOn3StarsurgeCharges"] = "SF at 3 SS charges"
+L["starfallOn3StarsurgeChargesDesc"] = "Suggest Starfall if you have three Starsurge charges and the current Starsurge buff is still up."
 
 L["Peak behavior"] = true
 L["PeakBehaviorDesc"] = "Controls the behavior for Lunar/Solar Peak and if/when to suggest DoTs."
