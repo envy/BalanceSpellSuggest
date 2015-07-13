@@ -112,6 +112,19 @@ local function solarBonus(e)
     return (e/2)+50
 end
 
+-- tries to show a frame
+local function tryShow(frame)
+    if frame:CanChangeProtectedState() then
+        frame:Show()
+    end
+end
+
+-- tries to hide a frame
+local function tryHide(frame)
+    if frame:CanChangeProtectedState() then
+        frame:Hide()
+    end
+end
 
 local options = {
     name = "Balance Spell Suggest",
@@ -769,7 +782,7 @@ function BalanceSpellSuggest:DisableTimer()
         self.updateTimer = nil
     end
 
-    self.suggestFrame:Hide()
+    tryHide(self.suggestFrame)
 end
 
 
@@ -792,12 +805,12 @@ function BalanceSpellSuggest:UpdateFramePosition()
 
     if self.db.profile.display.dotTimer.enable then
         self.suggestFrame:SetWidth(self.db.profile.display.general.size * 3 + self.db.profile.display.dotTimer.spacing * 2)
-        self.moonfireFrame:Show()
-        self.sunfireFrame:Show()
+        tryShow(self.moonfireFrame)
+        tryShow(self.sunfireFrame)
     else
         self.suggestFrame:SetWidth(self.db.profile.display.general.size)
-        self.moonfireFrame:Hide()
-        self.sunfireFrame:Hide()
+        tryHide(self.moonfireFrame)
+        tryHide(self.sunfireFrame)
     end
 
     self.moonfireFrame:SetHeight(self.db.profile.display.general.size)
@@ -883,7 +896,7 @@ function BalanceSpellSuggest:SetUpFrames()
     else
         self.suggestFrame:SetMovable(true)
         self.suggestFrame:EnableMouse(true)
-        self.suggestFrame:Show()
+        tryShow(self.suggestFrame)
     end
 
     self.curSpellFrame = self:CreateSpellFrame("BSS_Cur", starfire, 0, 0)
@@ -1034,7 +1047,7 @@ end
 function BalanceSpellSuggest:UpdateFrames()
     -- drag/drop  mode
     if not self.db.profile.display.general.locked then
-        self.suggestFrame:Show()
+        tryShow(self.suggestFrame)
         return
     end
 
@@ -1042,23 +1055,23 @@ function BalanceSpellSuggest:UpdateFrames()
 
     -- we need a target
     if not UnitExists("target") then
-        self.suggestFrame:Hide()
+        tryHide(self.suggestFrame)
         return
     end
 
     -- which is attackable
     if not UnitCanAttack("player", "target") then
-        self.suggestFrame:Hide()
+        tryHide(self.suggestFrame)
         return
     end
 
     -- and alive
     if UnitIsDead("target") then
-        self.suggestFrame:Hide()
+        tryHide(self.suggestFrame)
         return
     end
 
-    self.suggestFrame:Show()
+    tryShow(self.suggestFrame)
 
     self:UpdateTargetState()
 
