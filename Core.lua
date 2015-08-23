@@ -22,31 +22,79 @@ do
     local a, ai, b, bi
     local euphoriaValues = {104.5, 1/3.2 }
     local normalValues = {104.5, math.pi/20 }
-    local syncTime, inPeak, syncCycleTime = 0, false, 0
+    local syncTime, inPeak, syncCycleTime, caTime = 0, false, 0, nil
+    local asin = math.asin
+    local pi = math.pi
+    local abs = math.abs
+    local sin = math.sin
+    local max = math.max
+    local min = math.min
+    local floor = math.floor
+
+    local euphTimer = 1
+    local timerPeak = asin(100 / 104.5) / pi * 20
 
     local energyToTime = function(energy, direction)
         if direction == "sun" then
-            return ((math.asin(energy * ai) + math.pi) * bi)
+            return ((asin(energy * ai) + pi) * bi)
         else -- lunar and none
-            return (math.asin(energy * ai) * bi * -1)
+            return (asin(energy * ai) * bi * -1)
         end
     end
 
     local sync = function()
-        local power = UnitPower("player", 8)
-        if not inPeak and math.abs(power) == 100 then
+        local power = UnitPower("player", SPELL_POWER_ECLIPSE)
+        if not inPeak and abs(power) == 100 then
             syncTime = GetTime()
             syncCycleTime = energyToTime(power, GetEclipseDirection())
             inPeak = true
-        elseif inPeak and math.abs(power) < 100 then
+        elseif inPeak and abs(power) < 100 then
             inPeak = false
         end
+    end
+
+    BalanceSpellSuggest.predictor.getTimeToPeak = function(player)
+        -- time to next peak or 0
+        local timer1 = abs(asin(player.rawPower / 104.5) / pi * 20)
+        local result = timerPeak
+
+        if player.direction == "moon" and player.rawPower < 0 then -- in lunar and going to lunar peak
+            result =  20 - timer1 - timerPeak - (10 - timerPeak)
+        elseif player.direction == "sun" and player.rawPower > 0 then -- in solar and going to solar peak
+            result =  20 - timer1 - timerPeak - (10 - timerPeak)
+        elseif player.direction == "moon" and player.rawPower > 0 then -- in solar and going to lunar peak
+            result =  timer1 + timerPeak
+        elseif player.direction == "sun" and player.rawPower < 0 then -- in lunar and goung to solar peak
+            result =  timer1 + timerPeak
+        end
+
+        return result / euphTimer
+    end
+
+    BalanceSpellSuggest.predictor.getTimeToMiddle = function(player)
+        -- time to next middle
+        local timer1 = abs(asin(player.rawPower / 104.5) / pi * 20)
+        local result = timerPeak * 2
+
+        if player.direction == "moon" and player.rawPower < 0 then -- in lunar and going to lunar peak
+            result =  timer1 + timerPeak
+        elseif player.direction == "sun" and player.rawPower > 0 then -- in solar and going to solar peak
+            result =  timer1 + timerPeak
+        elseif player.direction == "moon" and player.rawPower > 0 then -- in solar and going to lunar peak
+            result =  timer1
+        elseif player.direction == "sun" and player.rawPower < 0 then -- in lunar and goung to solar peak
+            result =  timer1
+        end
+
+        return result / euphTimer
     end
 
     BalanceSpellSuggest.predictor.updateValues = function(euphoria)
         a, b = unpack((euphoria and euphoriaValues) or normalValues)
         ai = 1/a
         bi = 1/b
+        euphTimer = (euphoria and 2) or 1
+        timerPeak = (asin(100 / 104.5) / pi * 20) / euphTimer
     end
 
     BalanceSpellSuggest.predictor.getEnergy = function(casttime, player)
@@ -61,17 +109,21 @@ do
         end
         sync()
         local timenow
+
+        -- if CA is active then we need to reduce the cast time by the CA duration
+        if player.buffs.celestialAlignment > 0 then
+            casttime = max(casttime - player.buffs.celestialAlignment, 0)
+        end
+
         if (not inPeak) or (inPeak and startTime < syncTime) then
+            -- not in a peak or in a peak and a cast was started before the peak sync
             timenow = energyToTime(startEnergy, player.direction)
         else
-            local caDiff = 0
-            if player.buffs.celestialAlignment > 0 then
-                caDiff = 15 - player.buffs.celestialAlignment
-            end
-            timenow = syncCycleTime + (startTime - syncTime) - caDiff
+            -- in a peak
+            timenow = syncCycleTime + (startTime - syncTime)
         end
-        local temp = math.sin((timenow + casttime) * b) * a
-        return math.min(math.max(math.floor(temp), -100), 100) * -1
+        local temp = sin((timenow + casttime) * b) * a
+        return min(max(floor(temp), -100), 100) * -1
     end
 end
 
@@ -1150,13 +1202,17 @@ function BalanceSpellSuggest:UpdateFrames()
     if afterCurEnergy > 0 then
         self.curSpellFrame.textAC:SetTextColor(unpack(self.db.profile.display.spellIcon.predictedEnergy.solarColor))
     else
-        afterCurEnergy = math.abs(afterCurEnergy)
+        if afterCurEnergy < 0 then
+            afterCurEnergy = -afterCurEnergy
+        end
         self.curSpellFrame.textAC:SetTextColor(unpack(self.db.profile.display.spellIcon.predictedEnergy.lunarColor))
     end
     if afterNextEnergy > 0 then
         self.curSpellFrame.textAN:SetTextColor(unpack(self.db.profile.display.spellIcon.predictedEnergy.solarColor))
     else
-        afterNextEnergy = math.abs(afterNextEnergy)
+        if afterNextEnergy < 0 then
+            afterNextEnergy = -afterNextEnergy
+        end
         self.curSpellFrame.textAN:SetTextColor(unpack(self.db.profile.display.spellIcon.predictedEnergy.lunarColor))
     end
     if afterCurEnergy == 100 then
@@ -1220,7 +1276,7 @@ function BalanceSpellSuggest:UpdatePlayerState()
     local _,_,_,_,_,_,caET = UnitBuff("player", celestialalignmentname)
     self.player.buffs.celestialAlignment = (caET ~= nil and caET - self.player.time) or 0
 
-    self.player.power = UnitPower("player", 8)
+    self.player.power = UnitPower("player", SPELL_POWER_ECLIPSE)
     self.player.rawPower = self.player.power
     self.player.direction = GetEclipseDirection()
     self.player.inLunar = false
@@ -1398,17 +1454,26 @@ function BalanceSpellSuggest:curSpell(player)
     end
 
     if player.inSolar then
-        if player.target.debuffs.sunfire < self.db.profile.behavior.dotRefreshTime
-                or (player.direction == "sun" and player.power > 0 and player.target.debuffs.sunfire < 10)
-                or (player.direction == "moon" and player.power <= self.db.profile.behavior.dotRefreshPower and player.target.debuffs.sunfire <= halfCycle)
-                or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "always")
-                or (player.buffs.solarPeak and self.db.profile.behavior.peakBehavior == "time" and player.target.debuffs.sunfire < (halfCycle * 1.5)) then
-            return sunfire, self.predictor.getEnergy(player.castTimes.sunfire, player)
-        end
-
         local ss, sse = self:CalcStarsurgeRota(player, minStarsurgeCharges)
         if ss then
             return ss, sse
+        end
+
+        local solarPeak = self.predictor.getTimeToPeak(player)
+        local middle = self.predictor.getTimeToMiddle(player)
+        if player.direction == "sun" then
+            if  player.target.debuffs.sunfire < (solarPeak + 0.5) then
+                -- check if we can queeze in a wrath
+                if player.target.debuffs.sunfire > player.castTimes.wrath then
+                    return wrath,self.predictor.getEnergy(player.castTimes.wrath, player)
+                else
+                    return sunfire, self.predictor.getEnergy(player.castTimes.sunfire, player)
+                end
+            end
+        else
+            if player.target.debuffs.sunfire <= halfCycle + middle then
+                return sunfire, self.predictor.getEnergy(player.castTimes.sunfire, player)
+            end
         end
 
         local sf, sfe = self:CalcStellarFlare(player)
@@ -1435,16 +1500,26 @@ function BalanceSpellSuggest:curSpell(player)
             return celestialalignment, self.predictor.getEnergy(player.castTimes.celestialalignment, player)
         end
 
-        if player.target.debuffs.moonfire < self.db.profile.behavior.dotRefreshTime
-                or (player.direction == "sun" and player.power <= self.db.profile.behavior.dotRefreshPower and player.target.debuffs.moonfire <= halfCycle)
-                or (player.buffs.lunarPeak and self.db.profile.behavior.peakBehavior == "always")
-                or (player.buffs.lunarPeak and self.db.profile.behavior.peakBehavior == "time" and player.target.debuffs.moonfire < (halfCycle * 1.5)) then
-            return moonfire, self.predictor.getEnergy(player.castTimes.moonfire, player)
-        end
-
         local ss, sse = self:CalcStarsurgeRota(player, minStarsurgeCharges)
         if ss then
             return ss, sse
+        end
+
+        local lunarPeak = self.predictor.getTimeToPeak(player)
+        local middle = self.predictor.getTimeToMiddle(player)
+        if player.direction == "moon" then
+            if  player.target.debuffs.moonfire < (lunarPeak + 0.5) then
+                -- check if we can squeeze in a starfire
+                if player.target.debuffs.moonfire > player.castTimes.starfire then
+                    return starfire, self.predictor.getEnergy(player.castTimes.starfire, player)
+                else
+                    return moonfire, self.predictor.getEnergy(player.castTimes.moonfire, player)
+                end
+            end
+        else
+            if player.target.debuffs.moonfire <= halfCycle + middle then
+                return moonfire, self.predictor.getEnergy(player.castTimes.moonfire, player)
+            end
         end
 
         local sf, sfe = self:CalcStellarFlare(player)

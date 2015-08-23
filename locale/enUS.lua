@@ -7,7 +7,7 @@ L["OpenDesc"] = "Opens the options window"
 
 L["Info"] = true
 L["Infotext"] = "If you are casting nothing, your spell icon will show you your next cast.\
-If you are casting something, your next spell will be shown so you can queue it up when your current spell is finishing it's cast.\
+If you are casting something, your next spell will be shown so you can queue it up when your current spell is finishing its cast.\
 \
 If you have enabled the predicted energy display, the left number will show you your energy after your current cast. The right number will show you your energy after your next cast.\
 They are colored for lunar and solar phases. If you are at peak, they will show an asterisk (*)."
