@@ -25,3 +25,5 @@ externals:
         url: svn://svn.wowace.com/wow/libsharedmedia-3-0/mainline/trunk
     libs/AceGUI-3.0-SharedMediaWidgets:
         url: svn://svn.wowace.com/wow/ace-gui-3-0-shared-media-widgets/mainline/trunk
+    libs/LibButtonGlow-1.0:
+        url: git://git.wowace.com/wow/libbuttonglow-1-0/mainline.git

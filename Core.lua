@@ -7,6 +7,7 @@ BalanceSpellSuggest = LibStub("AceAddon-3.0"):NewAddon("BalanceSpellSuggest", "A
 
 local L = LibStub("AceLocale-3.0"):GetLocale("BalanceSpellSuggest", true)
 local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
+local LBG = LibStub:GetLibrary("LibButtonGlow-1.0")
 
 BalanceSpellSuggest.suggestFrame = nil
 BalanceSpellSuggest.curSpellFrame = nil
@@ -1131,22 +1132,22 @@ function BalanceSpellSuggest:UpdateFrames()
         if self.db.profile.display.dotTimer.peakGlow == "normal" then
             self.moonfireFrame.glowTexture:SetShown(true)
         elseif self.db.profile.display.dotTimer.peakGlow == "spellalert" then
-            ActionButton_ShowOverlayGlow(self.moonfireFrame)
+            LBG.ShowOverlayGlow(self.moonfireFrame)
         end
     else
         self.moonfireFrame.glowTexture:SetShown(false)
-        ActionButton_HideOverlayGlow(self.moonfireFrame)
+        LBG.HideOverlayGlow(self.moonfireFrame)
     end
 
     if self.player.buffs.solarPeak then
         if self.db.profile.display.dotTimer.peakGlow == "normal" then
             self.sunfireFrame.glowTexture:SetShown(true)
         elseif self.db.profile.display.dotTimer.peakGlow == "spellalert" then
-            ActionButton_ShowOverlayGlow(self.sunfireFrame)
+            LBG.ShowOverlayGlow(self.sunfireFrame)
         end
     else
         self.sunfireFrame.glowTexture:SetShown(false)
-        ActionButton_HideOverlayGlow(self.sunfireFrame)
+        LBG.HideOverlayGlow(self.sunfireFrame)
     end
 
     if self.db.profile.display.dotTimer.enable then
@@ -1240,17 +1241,17 @@ function BalanceSpellSuggest:UpdateFrames()
         elseif self.db.profile.display.spellIcon.empMoonkinGlow == "spellalert" then
             if self.db.profile.display.spellIcon.empMoonkinGlowWhen == "onlyCasts" then
                 if isNotInstant(curTexturePath) then
-                    ActionButton_ShowOverlayGlow(self.curSpellFrame)
+                    LBG.ShowOverlayGlow(self.curSpellFrame)
                 else
-                    ActionButton_HideOverlayGlow(self.curSpellFrame)
+                    LBG.HideOverlayGlow(self.curSpellFrame)
                 end
             else
-                ActionButton_ShowOverlayGlow(self.curSpellFrame)
+                LBG.ShowOverlayGlow(self.curSpellFrame)
             end
         end
     else
         self.curSpellFrame.glowTexture:SetShown(false)
-        ActionButton_HideOverlayGlow(self.curSpellFrame)
+        LBG.HideOverlayGlow(self.curSpellFrame)
     end
 end
 
