@@ -18,19 +18,21 @@ BalanceSpellSuggest.updateTimer = nil
 BalanceSpellSuggest.predictor = {}
 BalanceSpellSuggest.masque = {}
 
+local asin = math.asin
+local pi = math.pi
+local abs = math.abs
+local sin = math.sin
+local max = math.max
+local min = math.min
+local floor = math.floor
+
 do
     -- Adapted from BlanacePowerTracker
     local a, ai, b, bi
     local euphoriaValues = {104.5, 1/3.2 }
     local normalValues = {104.5, math.pi/20 }
-    local syncTime, inPeak, syncCycleTime, caTime = 0, false, 0, nil
-    local asin = math.asin
-    local pi = math.pi
-    local abs = math.abs
-    local sin = math.sin
-    local max = math.max
-    local min = math.min
-    local floor = math.floor
+    local syncTime, inPeak, syncCycleTime= 0, false, 0
+    local caInSync = false
 
     local euphTimer = 1
     local timerPeak = asin(100 / 104.5) / pi * 20
@@ -49,8 +51,10 @@ do
             syncTime = GetTime()
             syncCycleTime = energyToTime(power, GetEclipseDirection())
             inPeak = true
+            caInSync = false
         elseif inPeak and abs(power) < 100 then
             inPeak = false
+            caInSync = false
         end
     end
 
@@ -121,7 +125,14 @@ do
             timenow = energyToTime(startEnergy, player.direction)
         else
             -- in a peak
-            timenow = syncCycleTime + (startTime - syncTime)
+            local caDiff = 0
+            if player.buffs.celestialAlignment > 0 then
+                caDiff = 15 - player.buffs.celestialAlignment
+                caInSync = true
+            elseif player.buffs.celestialAlignment == 0 and caInSync then
+                caDiff = 15
+            end
+            timenow = syncCycleTime + (startTime - syncTime) - caDiff
         end
         local temp = sin((timenow + casttime) * b) * a
         return min(max(floor(temp), -100), 100) * -1
@@ -749,6 +760,7 @@ function BalanceSpellSuggest:OnInitialize()
         },
         celestialAlignmentReady = false,
         starsurgeCharges = 0,
+        starsurgeChargeCDStart = 0,
     }
 
     self:UpdateFramePosition()
@@ -1291,7 +1303,7 @@ function BalanceSpellSuggest:UpdatePlayerState()
         self.player.power = 0
     end
 
-    self.player.starsurgeCharges = select(1, GetSpellCharges(78674))
+    self.player.starsurgeCharges, _, self.player.starsurgeChargeCDStart, _ = GetSpellCharges(78674)
     local _,_,_,leC,_,_,leET = UnitBuff("player", lunarempowermentname)
     local _,_,_,seC,_,_,seET = UnitBuff("player", solarempowermentname)
     self.player.buffs.starsurgeLunarBonus = (leET ~= nil and tonumber(leC)) or 0
@@ -1603,22 +1615,23 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCast)
         player.moonkinForm = true
     end
 
+    local castTime
     if player.currentCast.icon == nil then
-        local castTime = player.castTimes[iconToCastTimeName(curCast)]
+        castTime = player.castTimes[iconToCastTimeName(curCast)]
         player.time = player.time + castTime
-
-        player.target.debuffs.moonfire = math.max(player.target.debuffs.moonfire - castTime, 0)
-        player.target.debuffs.sunfire = math.max(player.target.debuffs.sunfire - castTime, 0)
-        player.target.debuffs.stellarflare = math.max(player.target.debuffs.stellarflare - castTime, 0)
-        player.buffs.celestialAlignment = math.max(player.buffs.celestialAlignment - castTime, 0)
     else
-        local castTime = player.currentCast.castTime
+        castTime = player.currentCast.castTime
         player.time = (player.currentCast.startTime / 1000) + castTime
+    end
 
-        player.target.debuffs.moonfire = math.max(player.target.debuffs.moonfire - castTime, 0)
-        player.target.debuffs.sunfire = math.max(player.target.debuffs.sunfire - castTime, 0)
-        player.target.debuffs.stellarflare = math.max(player.target.debuffs.stellarflare - castTime, 0)
-        player.buffs.celestialAlignment = math.max(player.buffs.celestialAlignment - castTime, 0)
+    player.target.debuffs.moonfire = max(player.target.debuffs.moonfire - castTime, 0)
+    player.target.debuffs.sunfire = max(player.target.debuffs.sunfire - castTime, 0)
+    player.target.debuffs.stellarflare = max(player.target.debuffs.stellarflare - castTime, 0)
+    player.buffs.celestialAlignment = max(player.buffs.celestialAlignment - castTime, 0)
+
+    if player.time - player.starsurgeChargeCDStart >= 30 then
+        -- after this we will have another starsurge charge
+        player.starsurgeCharges = min(3, player.starsurgeCharges + 1)
     end
 
     player.currentCast.startPower = nil
