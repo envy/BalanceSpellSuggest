@@ -1,4 +1,4 @@
-## Interface: 60200
+## Interface: 70000
 ## Title: Balance Spell Suggest
 ## Author: envY (clemenZ9 on curse)
 ## Version: v5
