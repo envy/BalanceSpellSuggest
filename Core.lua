@@ -418,6 +418,10 @@ local moonkinformname,_,moonkinform = GetSpellInfo(24858)
 local blessingofelunename,_,blessingofelune = GetSpellInfo(202737)
 local blessingoftheancientsname,_,blessingoftheancients = GetSpellInfo(202360)
 
+local newmoonname,_,newmoon = GetSpellInfo(202767)
+local halfmoonname,_,halfmoon = GetSpellInfo(202768)
+local fullmoonname,_,fullmoon = GetSpellInfo(202771)
+
 local lunarempowermentname = GetSpellInfo(164547)
 local solarempowermentname = GetSpellInfo(164545)
 
@@ -428,6 +432,9 @@ local moonfireBase = 3
 local stellarflasebase = -15
 local starsurgebase = -40
 local starfallbase = -60
+local newmoonbase = 10
+local halfmoonbase = 20
+local fullmoonbase = 40
 
 local glowTexturePath = "Interface\\SpellActivationOverlay\\IconAlert"
 
@@ -439,6 +446,12 @@ local function spellToArray(i)
         return "solarwrath"
     elseif i == stellarflare or i == stellarflarename then
         return "stellarflare"
+    elseif i == newmoon or i == newmoonname then
+        return "newmoon"
+    elseif i == halfmoon or i == halfmoonname then
+        return "halfmoon"
+    elseif i == fullmoon or i == fullmoonname then
+        return "fullmoon"
     elseif i == celestialalignment or i == celestialalignmentname then
         return "celestialalignment"
     end
@@ -468,6 +481,12 @@ local function texToName(t)
         return moonkinformname
     elseif t == incarnation then
         return incarnationname
+    elseif t == newmoon then
+        return newmoonname
+    elseif t == halfmoon then
+        return halfmoonname
+    elseif t == fullmoon then
+        return fullmoonname
     end
 end
 
@@ -523,6 +542,9 @@ function BalanceSpellSuggest:OnInitialize()
             lunarstrike = 0,
             solarwrath = 0,
             stellarflare = 0,
+            newmoon = 0,
+            halfmoon = 0,
+            fullmoon = 0,
             gcd = 1.5,
             starsurge = 1.5, -- GCD
             starfall = 1.5, -- GCD
@@ -540,6 +562,9 @@ function BalanceSpellSuggest:OnInitialize()
             stellarflare = stellarflasebase,
             starsurge = starsurgebase,
             starfall = starfallbase,
+            newmoon = newmoonbase,
+            halfmoon = halfmoonbase,
+            fullmoon = fullmoonbase
         },
         inCombat = false,
         power = 0,
@@ -999,12 +1024,12 @@ function BalanceSpellSuggest:UpdateFrames()
     self.curSpellFrame.textAC:SetTextColor(unpack(self.db.profile.display.spellIcon.predictedEnergy.textColor))
     self.curSpellFrame.textAN:SetTextColor(unpack(self.db.profile.display.spellIcon.predictedEnergy.textColor))
 
-    if afterCurEnergy == 100 then
+    if afterCurEnergy >= 100 then
         self.curSpellFrame.textAC:SetText("*")
     else
         self.curSpellFrame.textAC:SetText(string.format("%.0f", afterCurEnergy))
     end
-    if afterNextEnergy == 100 then
+    if afterNextEnergy >= 100 then
         self.curSpellFrame.textAN:SetText("*")
     else
         self.curSpellFrame.textAN:SetText(string.format("%.0f", afterNextEnergy))
@@ -1109,10 +1134,16 @@ function BalanceSpellSuggest:UpdatePlayerCostAndGains()
     local _,_,_,lunarstrikect =  GetSpellInfo(194153)
     local _,_,_,solarwrathct = GetSpellInfo(190984)
     local _,_,_,stellarflarect = GetSpellInfo(202347)
+    local _,_,_,newmoonct = GetSpellInfo(202767)
+    local _,_,_,halfmoonct = GetSpellInfo(202768)
+    local _,_,_,fullmoonct = GetSpellInfo(202771)
 
     self.player.castTimes.lunarstrike = math.max(lunarstrikect / 1000, 1)
     self.player.castTimes.solarwrath = math.max(solarwrathct / 1000, 1)
     self.player.castTimes.stellarflare = math.max(stellarflarect / 1000, 1)
+    self.player.castTimes.newmoon = max(newmoonct / 1000, 1)
+    self.player.castTimes.halfmoon = max(halfmoonct / 1000, 1)
+    self.player.castTimes.fullmoon = max(fullmoonct / 1000, 1)
 
     self.player.astralpower.solarwrath = solarWrathBase
     self.player.astralpower.lunarstrike = lunarStrikeBase
