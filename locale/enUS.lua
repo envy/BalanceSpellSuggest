@@ -36,6 +36,12 @@ L["Opacity"] = true
 L["sizeDesc"] = "Size of the icons"
 
 L["SpellIcon"] = "Spell icon"
+L["empMoonkinGlow"] = "Glow on OF style"
+L["empMoonkinGlowDesc"] = "Whether and what glow to show if your next spell is instant because of Owlkin Frenzy"
+L["empMoonkinGlowWhen"] = "Glow on OF behavior"
+L["empMoonkinGlowWhenDesc"] = "Whether to show the glow for every suggested spell or only for spells with cast times"
+L["GlowWhenAll"] = "All spells"
+L["GlowWhenOnlyCasts"] = "Only for spells with cast times"
 L["showGCD"] = "Show GCD"
 L["showGCDDesc"] = "Show a cooldown spiral for the global cooldown"
 
@@ -51,5 +57,8 @@ L["Enable timers"] = true
 L["Font size"] = true
 L["Highlight font size"] = true
 L["Font"] = true
+L["GlowNone"] = "Never"
+L["GlowNormal"] = "Normal"
+L["GlowSpellAlert"] = "Spell Alert"
 L["Spacing"] = true
 L["spacingDesc"] = "Add extra space between the timers and the spell icon"

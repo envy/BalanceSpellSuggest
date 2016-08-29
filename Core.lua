@@ -227,11 +227,35 @@ local options = {
                     type = "group",
                     order = 1,
                     args = {
+                        empMoonkinGlow = {
+                            name = L["empMoonkinGlow"],
+                            desc = L["empMoonkinGlowDesc"],
+                            type = "select",
+                            order = 1,
+                            values = { none = L["GlowNone"], normal = L["GlowNormal"], spellalert = L["GlowSpellAlert"] },
+                            set = function(_, val)
+                                BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlow = val
+                                BalanceSpellSuggest:UpdateFramePosition()
+                            end,
+                            get = function(_) return BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlow end
+                        },
+                        empMoonkinGlowWhen = {
+                            name = L["empMoonkinGlowWhen"],
+                            desc = L["empMoonkinGlowWhenDesc"],
+                            type = "select",
+                            order = 2,
+                            values = { all = L["GlowWhenAll"], onlyCasts = L["GlowWhenOnlyCasts"] },
+                            set = function(_, val)
+                                BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlowWhen = val
+                                BalanceSpellSuggest:UpdateFramePosition()
+                            end,
+                            get = function(_) return BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlowWhen end
+                        },
                         showGCD = {
                             name = L["showGCD"],
                             desc = L["showGCDDesc"],
                             type = "toggle",
-                            order = 1,
+                            order = 3,
                             set = function(_, val)
                                 BalanceSpellSuggest.db.profile.display.spellIcon.showGCD = val
                             end,
@@ -240,7 +264,7 @@ local options = {
                         predictedEnergy = {
                             name = L["predictedEnergyDisplay"],
                             type = "group",
-                            order = 2,
+                            order = 4,
                             inline = true,
                             args = {
                                 show = {
@@ -385,6 +409,8 @@ local defaults = {
                 opacity = 1.0,
             },
             spellIcon = {
+                empMoonkinGlow = "spellalert",
+                empMoonkinGlowWhen = "all",
                 showGCD = true,
                 predictedEnergy = {
                     show = true,
@@ -425,8 +451,10 @@ local fullmoonname,_,fullmoon = GetSpellInfo(202771)
 local lunarempowermentname = GetSpellInfo(164547)
 local solarempowermentname = GetSpellInfo(164545)
 
-local lunarStrikeBase = 10
-local solarWrathBase = 6
+local owlkinFrenzyname,_,owlkinFrenzy = GetSpellInfo(157228)
+
+local lunarStrikeBase = 12
+local solarWrathBase = 8
 local sunfireBase = 3
 local moonfireBase = 3
 local stellarflasebase = -15
@@ -491,7 +519,7 @@ local function texToName(t)
 end
 
 local function isNotInstant(n)
-    return n == starfire or n == wrath or n == stellarflare
+    return n == lunarstrike or n == solarwrath or n == stellarflare
 end
 
 -- Always called
@@ -527,6 +555,7 @@ function BalanceSpellSuggest:OnInitialize()
             warriorofelune = 0,
             incarnation = 0,
             blessingofelune = 0,
+            owlkinFrenzy = 0,
         },
         talents = {
             warriorofelune = false,
@@ -555,6 +584,7 @@ function BalanceSpellSuggest:OnInitialize()
             solarbeam = 0, -- no GCD
         },
         astralpower = {
+            gcd = 0,
             solarwrath = solarWrathBase,
             lunarstrike = lunarStrikeBase,
             moonfire = moonfireBase,
@@ -564,7 +594,7 @@ function BalanceSpellSuggest:OnInitialize()
             starfall = starfallbase,
             newmoon = newmoonbase,
             halfmoon = halfmoonbase,
-            fullmoon = fullmoonbase
+            fullmoon = fullmoonbase,
         },
         inCombat = false,
         power = 0,
@@ -970,7 +1000,7 @@ function BalanceSpellSuggest:UpdateFrames()
 
     self:UpdateTargetState()
 
-   if self.db.profile.display.dotTimer.enable then
+    if self.db.profile.display.dotTimer.enable then
         self:TimerFrameUpdate(self.moonfireFrame, self.player.target.debuffs.moonfire)
         self:TimerFrameUpdate(self.sunfireFrame, self.player.target.debuffs.sunfire)
     end
@@ -1033,6 +1063,33 @@ function BalanceSpellSuggest:UpdateFrames()
         self.curSpellFrame.textAN:SetText("*")
     else
         self.curSpellFrame.textAN:SetText(string.format("%.0f", afterNextEnergy))
+    end
+
+    if self.player.buffs.owlkinFrenzy > 0 then
+        if self.db.profile.display.spellIcon.empMoonkinGlow == "normal" then
+            if self.db.profile.display.spellIcon.empMoonkinGlowWhen == "onlyCasts" then
+                if isNotInstant(curTexturePath) then
+                    self.curSpellFrame.glowTexture:SetShown(true)
+                else
+                    self.curSpellFrame.glowTexture:SetShown(false)
+                end
+            else
+                self.curSpellFrame.glowTexture:SetShown(true)
+            end
+        elseif self.db.profile.display.spellIcon.empMoonkinGlow == "spellalert" then
+            if self.db.profile.display.spellIcon.empMoonkinGlowWhen == "onlyCasts" then
+                if isNotInstant(curTexturePath) then
+                    LBG.ShowOverlayGlow(self.curSpellFrame)
+                else
+                    LBG.HideOverlayGlow(self.curSpellFrame)
+                end
+            else
+                LBG.ShowOverlayGlow(self.curSpellFrame)
+            end
+        end
+    else
+        self.curSpellFrame.glowTexture:SetShown(false)
+        LBG.HideOverlayGlow(self.curSpellFrame)
     end
 end
 
@@ -1122,6 +1179,13 @@ function BalanceSpellSuggest:UpdatePlayerState()
         self.player.buffs.blessingofelune = 0
     end
 
+    local _,_,_,_,_,_,ofET = UnitBuff("player", owlkinFrenzyname)
+    if ofET then
+        self.player.buffs.owlkinFrenzy = 1
+    else
+        self.player.buffs.owlkinFrenzy = 0
+    end
+
     self:UpdatePlayerCostAndGains()
 end
 
@@ -1147,6 +1211,8 @@ function BalanceSpellSuggest:UpdatePlayerCostAndGains()
 
     self.player.astralpower.solarwrath = solarWrathBase
     self.player.astralpower.lunarstrike = lunarStrikeBase
+    self.player.astralpower.moonfire = moonfireBase
+    self.player.astralpower.sunfire = sunfireBase
 
     if self.player.buffs.celestialAlignment > 0 then
         self.player.astralpower.solarwrath = self.player.astralpower.solarwrath + (solarWrathBase * 0.5)
@@ -1159,8 +1225,8 @@ function BalanceSpellSuggest:UpdatePlayerCostAndGains()
     end
 
     if self.player.buffs.blessingofelune > 0 then
-        self.player.astralpower.solarwrath = self.player.astralpower.solarwrath + (solarWrathBase * 0.4)
-        self.player.astralpower.lunarstrike = self.player.astralpower.lunarstrike + (lunarStrikeBase * 0.4)
+        self.player.astralpower.solarwrath = self.player.astralpower.solarwrath + (solarWrathBase * 0.25)
+        self.player.astralpower.lunarstrike = self.player.astralpower.lunarstrike + (lunarStrikeBase * 0.25)
     end
 
     if self.player.talents.souloftheforest then
@@ -1225,14 +1291,17 @@ end
 function BalanceSpellSuggest:curSpell(player)
     local player = player or self.player
 
+    -- we need moonkinform
     if not player.moonkinForm then
         return moonkinform, 0
     end
 
+    -- also we want blessing of elune if we have the blessing of the ancients talent
     if player.talents.blessingoftheancients and player.buffs.blessingofelune == 0 then
         return blessingoftheancients, 0
     end
 
+    -- opener
     if not player.inCombat and player.power == 0 then
         return lunarstrike, player.astralpower.lunarstrike
     end
@@ -1289,9 +1358,15 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCastName)
         if player.buffs.starsurgeLunarBonus > 0 then
             player.buffs.starsurgeLunarBonus = math.max(player.buffs.starsurgeLunarBonus - 1, 0)
         end
+        if player.talents.naturesbalance and player.target.debuffs.moonfire > 0 then
+            player.target.debuffs.moonfire =  player.target.debuffs.moonfire + 5
+        end
     elseif curCastName == solarwrathname then
         if player.buffs.starsurgeSolarBonus > 0 then
             player.buffs.starsurgeSolarBonus = math.max(player.buffs.starsurgeSolarBonus - 1, 0)
+        end
+        if player.talents.naturesbalance and player.target.debuffs.sunfire > 0 then
+            player.target.debuffs.sunfire =  player.target.debuffs.sunfire + 3
         end
     elseif curCastName == celestialalignmentname then
         player.buffs.celestialAlignment = 15
