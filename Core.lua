@@ -441,12 +441,7 @@ local starfallname,_,starfall = GetSpellInfo(191034)
 local celestialalignmentname,_,celestialalignment = GetSpellInfo(194223)
 local incarnationname,_,incarnation = GetSpellInfo(102560)
 local moonkinformname,_,moonkinform = GetSpellInfo(24858)
-local blessingofelunename,_,blessingofelune = GetSpellInfo(202737)
-local blessingoftheancientsname,_,blessingoftheancients = GetSpellInfo(202360)
-
-local newmoonname,_,newmoon = GetSpellInfo(202767)
-local halfmoonname,_,halfmoon = GetSpellInfo(202768)
-local fullmoonname,_,fullmoon = GetSpellInfo(202771)
+local furyofelunename,_,furyofelune = GetSpellInfo(202770)
 
 local lunarempowermentname = GetSpellInfo(164547)
 local solarempowermentname = GetSpellInfo(164545)
@@ -457,12 +452,11 @@ local lunarStrikeBase = 12
 local solarWrathBase = 8
 local sunfireBase = 3
 local moonfireBase = 3
-local stellarflasebase = -15
+local stellarflasebase = 8
 local starsurgebase = -40
-local starfallbase = -60
-local newmoonbase = 10
-local halfmoonbase = 20
-local fullmoonbase = 40
+local starfallbase = -50
+local fureyofelunebase = 0
+local fureyofelunebasegain = 5
 
 local glowTexturePath = "Interface\\SpellActivationOverlay\\IconAlert"
 
@@ -474,14 +468,12 @@ local function spellToArray(i)
         return "solarwrath"
     elseif i == stellarflare or i == stellarflarename then
         return "stellarflare"
-    elseif i == newmoon or i == newmoonname then
-        return "newmoon"
-    elseif i == halfmoon or i == halfmoonname then
-        return "halfmoon"
-    elseif i == fullmoon or i == fullmoonname then
-        return "fullmoon"
     elseif i == celestialalignment or i == celestialalignmentname then
         return "celestialalignment"
+    elseif i == furyofelune or i == furyofelunename then
+        return "furyofelune"
+    elseif i == starsurge or i == starsurgename then
+        return "starsurge"
     end
     return "gcd"
 end
@@ -493,14 +485,10 @@ local function texToName(t)
         return solarwrathname
     elseif t == stellarflare then
         return stellarflarename
-    elseif t == blessingofelune then
-        return blessingofelunename
     elseif t == moonfire then
         return moonfirename
     elseif t == solarwrath then
         return solarwrath
-    elseif t == blessingoftheancients then
-        return blessingoftheancientsname
     elseif t == starsurge then
         return starsurgename
     elseif t == starfall then
@@ -509,12 +497,6 @@ local function texToName(t)
         return moonkinformname
     elseif t == incarnation then
         return incarnationname
-    elseif t == newmoon then
-        return newmoonname
-    elseif t == halfmoon then
-        return halfmoonname
-    elseif t == fullmoon then
-        return fullmoonname
     end
 end
 
@@ -554,33 +536,29 @@ function BalanceSpellSuggest:OnInitialize()
             starsurgeSolarBonus = 0,
             warriorofelune = 0,
             incarnation = 0,
-            blessingofelune = 0,
             owlkinFrenzy = 0,
         },
         talents = {
-            warriorofelune = false,
             souloftheforest = false,
             stellarflare = false,
-            astralcommunion = false,
             incarnation = false,
-            naturesbalance = false,
             furyofelune = false,
-            blessingoftheancients = false
         },
         castTimes = {
             lunarstrike = 0,
             solarwrath = 0,
             stellarflare = 0,
-            newmoon = 0,
-            halfmoon = 0,
-            fullmoon = 0,
+            --newmoon = 0,
+            --halfmoon = 0,
+            --fullmoon = 0,
             gcd = 1.5,
             starsurge = 1.5, -- GCD
             starfall = 1.5, -- GCD
             moonfire = 1.5, -- GCD
             sunfire = 1.5, -- GCD
             moonkinform = 1.5, -- GCD
-            celestialalignment = 0, -- no GCD
+            celestialalignment = 1.5, -- GCD
+            furyofelune = 1.5, -- GCD
             solarbeam = 0, -- no GCD
         },
         astralpower = {
@@ -592,9 +570,10 @@ function BalanceSpellSuggest:OnInitialize()
             stellarflare = stellarflasebase,
             starsurge = starsurgebase,
             starfall = starfallbase,
-            newmoon = newmoonbase,
-            halfmoon = halfmoonbase,
-            fullmoon = fullmoonbase,
+            furyofelune = fureyofelunebase,
+            --newmoon = newmoonbase,
+            --halfmoon = halfmoonbase,
+            --fullmoon = fullmoonbase,
         },
         inCombat = false,
         power = 0,
@@ -621,7 +600,13 @@ function BalanceSpellSuggest:OnInitialize()
             }
         },
         celestialAlignmentReady = false,
+        --newMoonReady = false,
+        --halfMoonReady = false,
+        --fullMoonReady = false,
+        furyOfEluneCD = 0,
         incarnationReady = false,
+        --moonCharges = 0,
+        --moonChargeCDStart = 0,
     }
 
     self:UpdateFramePosition()
@@ -1097,44 +1082,43 @@ end
 function BalanceSpellSuggest:UpdatePlayerState()
     self.player.time = GetTime()
 
-    local _,_,_,mfC = UnitBuff("player", moonkinformname)
+    local _, _, mfC = AuraUtil.FindAuraByName(moonkinformname, "player")
     self.player.moonkinForm = mfC ~= nil
 
-    local _, _, _, t1, t2  = GetTalentInfo(1, 2, GetActiveSpecGroup())
-    self.player.talents.warriorofelune = t1 and t2
-
-    local _, _, _, t1, t2  = GetTalentInfo(5, 3, GetActiveSpecGroup())
+    local _, _, _, t1, t2  = GetTalentInfo(6, 3, GetActiveSpecGroup())
     self.player.talents.stellarflare = t1 and t2
 
-    local _, _, _, t1, t2  = GetTalentInfo(5, 2, GetActiveSpecGroup())
+    local _, _, _, t1, t2  = GetTalentInfo(5, 3, GetActiveSpecGroup())
     self.player.talents.incarnation = t1 and t2
+
+    local _, _, _, t1, t2  = GetTalentInfo(7, 2, GetActiveSpecGroup())
+    self.player.talents.furyofelune = t1 and t2
 
     local _, _, _, t1, t2  = GetTalentInfo(5, 1, GetActiveSpecGroup())
     self.player.talents.souloftheforest = t1 and t2
 
-    local _, _, _, t1, t2  = GetTalentInfo(6, 2, GetActiveSpecGroup())
-    self.player.talents.astralcommunion = t1 and t2
-
-    local _, _, _, t1, t2  = GetTalentInfo(6, 3, GetActiveSpecGroup())
-    self.player.talents.blessingoftheancients = t1 and t2
-
-    local _, _, _, t1, t2  = GetTalentInfo(7, 3, GetActiveSpecGroup())
-    self.player.talents.naturesbalance = t1 and t2
-
-    local _, _, _, t1, t2  = GetTalentInfo(7, 1, GetActiveSpecGroup())
-    self.player.talents.furyofelune = t1 and t2
-
-    local _,_,_,_,_,_,caET = UnitBuff("player", celestialalignmentname)
+    local _, _, _, _, _, caET = AuraUtil.FindAuraByName(celestialalignmentname, "player")
     self.player.buffs.celestialAlignment = (caET ~= nil and caET - self.player.time) or 0
 
     self.player.power = UnitPower("player", SPELL_POWER_ECLIPSE)
 
-    local _,_,_,leC,_,_,leET = UnitBuff("player", lunarempowermentname)
-    local _,_,_,seC,_,_,seET = UnitBuff("player", solarempowermentname)
+    --self.player.moonCharges = select(1, GetSpellCharges(202767)) or 0
+    --self.player.moonChargeCDStart = select(3, GetSpellCharges(202767))
+    --if self.player.moonCharges == nil then
+    --    self.player.moonCharges = select(1, GetSpellCharges(202768))
+    --    if self.player.moonCharges == nil then
+    --        self.player.moonCharges = select(1, GetSpellCharges(202771))
+    --    end
+    --end
+    --print(self.player.moonCharges)
+    --print(self.player.moonChargeCDStart)
+
+    local _,_,leC,_,_,leET = AuraUtil.FindAuraByName(lunarempowermentname, "player")
+    local _,_,seC,_,_,seET = AuraUtil.FindAuraByName(solarempowermentname, "player")
     self.player.buffs.starsurgeLunarBonus = (leET ~= nil and tonumber(leC)) or 0
     self.player.buffs.starsurgeSolarBonus = (seC ~= nil and tonumber(seC)) or 0
 
-    local spell, a, b, icon, startTime, endTime, _, id, interrupt = UnitCastingInfo("player")
+    local spell, _, icon, startTime, endTime, _, id, interrupt = UnitCastingInfo("player")
     if startTime ~= nil and self.player.currentCast.startTime ~= startTime then
         self.player.currentCast.startPower = self.player.power
     elseif spell == nil then
@@ -1165,21 +1149,48 @@ function BalanceSpellSuggest:UpdatePlayerState()
         self.player.incarnationReady = false
     end
 
-    local _,_,_,_,_,_,sfET = UnitBuff("player", starfallname)
+    local start, dur, _, _ = GetSpellCooldown(202770)
+    if dur > 0 then
+        self.player.furyOfEluneCD = dur - (self.player.time - start)
+    else
+        self.player.furyOfEluneCD = 0
+    end
+
+    -- self.player.furyOfEluneCD = min(self.player.time - select(1, GetSpellCooldown(202770)), 0)
+    --print("t: "..tostring(self.player.time).." cd: "..tostring(select(1, GetSpellCooldown(202770))))
+
+    --local _,_,moonIcon = GetSpellInfo(202767)
+    --if select(2, GetSpellCooldown(202767)) == 0 and nmoC ~= nil and hmoC ~= nil then
+    --if moonIcon == newMoonIcon and self.player.moonCharges > 0 then
+    --    self.player.newMoonReady = true
+    --else
+    --    self.player.newMoonReady = false
+    --end
+
+    --if select(2, GetSpellCooldown(202768)) == 0 and nmoC == nil and hmoC ~= nil then
+    --if moonIcon == halfMoonIcon and self.player.moonCharges > 0 then
+    --    self.player.halfMoonReady = true
+    --else
+    --    self.player.halfMoonReady = false
+    --end
+
+    --if select(2, GetSpellCooldown(202771)) == 0 and nmoC == nil and hmoC == nil then
+    --if moonIcon == fullMoonIcon and self.player.moonCharges > 0 then
+    --    self.player.fullMoonReady = true
+    --else
+    --    self.player.fullMoonReady = false
+    --end
+    --print("nmoC: "..tostring(nmoC~=nil).." hmoC: "..tostring(hmoC~=nil))
+    --print("foe: "..tostring(self.player.furyOfEluneCD).." nm: "..tostring(self.player.newMoonReady).." hm: "..tostring(self.player.halfMoonReady).." fm: "..tostring(self.player.fullMoonReady))
+
+    local _,_,_,_,_,sfET = AuraUtil.FindAuraByName(starfallname, "player")
     if sfET then
         self.player.buffs.starfall = sfET - self.player.time
     else
         self.player.buffs.starfall = 0
     end
 
-    local _,_,_,_,_,_,sfET = UnitBuff("player", blessingofelunename)
-    if sfET then
-        self.player.buffs.blessingofelune = 1
-    else
-        self.player.buffs.blessingofelune = 0
-    end
-
-    local _,_,_,_,_,_,ofET = UnitBuff("player", owlkinFrenzyname)
+    local _,_,_,_,_,ofET = AuraUtil.FindAuraByName(owlkinFrenzyname, "player")
     if ofET then
         self.player.buffs.owlkinFrenzy = 1
     else
@@ -1193,41 +1204,31 @@ end
 function BalanceSpellSuggest:UpdatePlayerCostAndGains()
     local curHaste = UnitSpellHaste("player")
 
-    self.player.castTimes.gcd = math.max(self.baseGCD * (1 - (curHaste/100)), 1)
+    self.player.castTimes.gcd = max(self.baseGCD * (1 - (curHaste/100)), 1)
 
     local _,_,_,lunarstrikect =  GetSpellInfo(194153)
     local _,_,_,solarwrathct = GetSpellInfo(190984)
     local _,_,_,stellarflarect = GetSpellInfo(202347)
-    local _,_,_,newmoonct = GetSpellInfo(202767)
-    local _,_,_,halfmoonct = GetSpellInfo(202768)
-    local _,_,_,fullmoonct = GetSpellInfo(202771)
+    --local _,_,_,newmoonct = GetSpellInfo(202767)
+    --local _,_,_,halfmoonct = GetSpellInfo(202768)
+    --local _,_,_,fullmoonct = GetSpellInfo(202771)
 
-    self.player.castTimes.lunarstrike = math.max(lunarstrikect / 1000, 1)
-    self.player.castTimes.solarwrath = math.max(solarwrathct / 1000, 1)
-    self.player.castTimes.stellarflare = math.max(stellarflarect / 1000, 1)
-    self.player.castTimes.newmoon = max(newmoonct / 1000, 1)
-    self.player.castTimes.halfmoon = max(halfmoonct / 1000, 1)
-    self.player.castTimes.fullmoon = max(fullmoonct / 1000, 1)
+    if self.player.buffs.owlkinFrenzy > 0 then
+        self.player.castTimes.lunarstrike = self.player.castTimes.gcd
+    else
+        self.player.castTimes.lunarstrike = max(lunarstrikect / 1000, 1)
+        self.player.castTimes.solarwrath = max(solarwrathct / 1000, 1)
+        self.player.castTimes.stellarflare = max(stellarflarect / 1000, 1)
+        --self.player.castTimes.newmoon = max(newmoonct / 1000, 1)
+        --self.player.castTimes.halfmoon = max(halfmoonct / 1000, 1)
+        --self.player.castTimes.fullmoon = max(fullmoonct / 1000, 1)
+    end
 
     self.player.astralpower.solarwrath = solarWrathBase
     self.player.astralpower.lunarstrike = lunarStrikeBase
     self.player.astralpower.moonfire = moonfireBase
     self.player.astralpower.sunfire = sunfireBase
-
-    if self.player.buffs.celestialAlignment > 0 then
-        self.player.astralpower.solarwrath = self.player.astralpower.solarwrath + (solarWrathBase * 0.5)
-        self.player.astralpower.lunarstrike = self.player.astralpower.lunarstrike + (lunarStrikeBase * 0.5)
-    end
-
-    if self.player.buffs.incarnation > 0 then
-        self.player.astralpower.solarwrath = self.player.astralpower.solarwrath + (solarWrathBase * 0.5)
-        self.player.astralpower.lunarstrike = self.player.astralpower.lunarstrike + (lunarStrikeBase * 0.5)
-    end
-
-    if self.player.buffs.blessingofelune > 0 then
-        self.player.astralpower.solarwrath = self.player.astralpower.solarwrath + (solarWrathBase * 0.25)
-        self.player.astralpower.lunarstrike = self.player.astralpower.lunarstrike + (lunarStrikeBase * 0.25)
-    end
+    self.player.astralpower.starfall = starfallbase
 
     if self.player.talents.souloftheforest then
         self.player.astralpower.starfall = min(self.player.astralpower.starfall + 10, 0)
@@ -1239,19 +1240,19 @@ end
 function BalanceSpellSuggest:UpdateTargetState()
     local time = GetTime()
 
-    local _,_,_,_,_,_,mET,mC = UnitAura("target", moonfirename, nil, "PLAYER|HARMFUL") -- Moonfire
+    local _,_,_,_,_,mET,mC = AuraUtil.FindAuraByName(moonfirename, "target", "PLAYER|HARMFUL") -- Moonfire
     if mET and mC == "player" then
         self.player.target.debuffs.moonfire = mET - time
     else
         self.player.target.debuffs.moonfire = 0
     end
-    local _,_,_,_,_,_,sET,sC = UnitAura("target", sunfirename, nil, "PLAYER|HARMFUL") -- Sunfire
+    local _,_,_,_,_,sET,sC = AuraUtil.FindAuraByName(sunfirename, "target", "PLAYER|HARMFUL") -- Sunfire
     if sET and sC == "player" then
         self.player.target.debuffs.sunfire = sET - time
     else
         self.player.target.debuffs.sunfire = 0
     end
-    local _,_,_,_,_,_,sET,sC = UnitAura("target", stellarflarename, nil, "PLAYER|HARMFUL") -- Stellar Flare
+    local _,_,_,_,_,sET,sC = AuraUtil.FindAuraByName(stellarflarename, "target", "PLAYER|HARMFUL") -- Stellar Flare
     if sET and sC == "player" then
         self.player.target.debuffs.stellarflare = sET - time
     else
@@ -1296,38 +1297,49 @@ function BalanceSpellSuggest:curSpell(player)
         return moonkinform, 0
     end
 
-    -- also we want blessing of elune if we have the blessing of the ancients talent
-    if player.talents.blessingoftheancients and player.buffs.blessingofelune == 0 then
-        return blessingoftheancients, 0
-    end
-
     -- opener
     if not player.inCombat and player.power == 0 then
-        return lunarstrike, player.astralpower.lunarstrike
+        return solarwrath, player.astralpower.solarwrath
     end
 
-    if player.target.debuffs.moonfire < self.db.profile.behavior.dotRefreshTime or player.target.debuffs.moonfire <= player.castTimes.solarwrath then
+    if player.target.debuffs.moonfire < 6.6 or player.target.debuffs.moonfire <= player.castTimes.solarwrath then
         return moonfire, player.power + player.astralpower.moonfire
     end
 
-    if player.target.debuffs.sunfire < self.db.profile.behavior.dotRefreshTime or player.target.debuffs.sunfire <= player.castTimes.solarwrath then
+    if player.target.debuffs.sunfire < 5.4 or player.target.debuffs.sunfire <= player.castTimes.solarwrath then
         return sunfire, player.power + player.astralpower.sunfire
     end
 
-    if player.talents.stellarflare and (player.target.debuffs.stellarflare < self.db.profile.behavior.dotRefreshTime or player.target.debuffs.stellarflare <= player.castTimes.solarwrath) and player.power + player.astralpower.stellarflare >= 0 then
+    if player.talents.stellarflare and (player.target.debuffs.stellarflare < 7.2 or player.target.debuffs.stellarflare <= player.castTimes.solarwrath) and player.power + player.astralpower.stellarflare >= 0 then
         return stellarflare, player.power + player.astralpower.stellarflare
     end
 
-    if player.power + player.astralpower.starsurge >= 0 then
+    if player.talents.furyofelune then
+        -- if FoE is skilled
+        if player.furyOfEluneCD == 0 then
+            return furyofelune, player.power
+        end
+
+    else
+        -- if FoE is not skilled
+
+    end
+
+    if player.power >= 70 then
+        -- if we are above 70 AP and are not capped with empowerments, cast starsurge
         if player.buffs.starsurgeSolarBonus < 2 and player.buffs.starsurgeLunarBonus < 2 then
             return starsurge, player.power + player.astralpower.starsurge
         end
     end
 
-    if player.buffs.starsurgeLunarBonus > 0 then
+    -- in all other cases
+
+    if player.buffs.starsurgeLunarBonus > 0 and player.buffs.starsurgeSolarBonus < 3 then
+        -- if we have lunar empowerments, but not 3 solar, cast LS
         return lunarstrike, player.power + player.astralpower.lunarstrike
     end
 
+    -- otherwise, cast SW
     return solarwrath, player.power + player.astralpower.solarwrath
 end
 
@@ -1344,10 +1356,10 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCastName)
     end
 
     if curCastName == starsurgename then
-        player.buffs.starsurgeSolarBonus = math.max(player.buffs.starsurgeSolarBonus + 1, 3)
-        player.buffs.starsurgeLunarBonus = math.max(player.buffs.starsurgeLunarBonus + 1, 3)
+        player.buffs.starsurgeSolarBonus = max(player.buffs.starsurgeSolarBonus + 1, 3)
+        player.buffs.starsurgeLunarBonus = max(player.buffs.starsurgeLunarBonus + 1, 3)
     elseif curCastName == starfallname then
-        player.buffs.starfall = 10
+        player.buffs.starfall = 8
     elseif curCastName == moonfirename then
         player.target.debuffs.moonfire = 22
     elseif curCastName == sunfirename then
@@ -1356,24 +1368,20 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCastName)
         player.target.debuffs.stellarflare = 24
     elseif curCastName == lunarstrikename then
         if player.buffs.starsurgeLunarBonus > 0 then
-            player.buffs.starsurgeLunarBonus = math.max(player.buffs.starsurgeLunarBonus - 1, 0)
-        end
-        if player.talents.naturesbalance and player.target.debuffs.moonfire > 0 then
-            player.target.debuffs.moonfire =  player.target.debuffs.moonfire + 5
+            player.buffs.starsurgeLunarBonus = max(player.buffs.starsurgeLunarBonus - 1, 0)
         end
     elseif curCastName == solarwrathname then
         if player.buffs.starsurgeSolarBonus > 0 then
-            player.buffs.starsurgeSolarBonus = math.max(player.buffs.starsurgeSolarBonus - 1, 0)
-        end
-        if player.talents.naturesbalance and player.target.debuffs.sunfire > 0 then
-            player.target.debuffs.sunfire =  player.target.debuffs.sunfire + 3
+            player.buffs.starsurgeSolarBonus = max(player.buffs.starsurgeSolarBonus - 1, 0)
         end
     elseif curCastName == celestialalignmentname then
-        player.buffs.celestialAlignment = 15
+        player.buffs.celestialAlignment = 20
         player.celestialAlignmentReady = false
     elseif curCastName == moonkinformname then
         player.moonkinForm = true
     end
+
+    local oldTime = player.time
 
     local castTime
     if player.currentCast.icon == nil then
@@ -1384,10 +1392,18 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCastName)
         player.time = (player.currentCast.startTime / 1000) + castTime
     end
 
+    local timeDiff = player.time - oldTime
+
     player.target.debuffs.moonfire = max(player.target.debuffs.moonfire - castTime, 0)
     player.target.debuffs.sunfire = max(player.target.debuffs.sunfire - castTime, 0)
     player.target.debuffs.stellarflare = max(player.target.debuffs.stellarflare - castTime, 0)
     player.buffs.celestialAlignment = max(player.buffs.celestialAlignment - castTime, 0)
+
+    --if player.time - player.moonChargeCDStart >= 15 then
+    --    player.moonCharges = min(3, player.moonCharges + 1)
+    --end
+
+    player.furyOfEluneCD = max(player.furyOfEluneCD - timeDiff, 0)
 
     player.currentCast.startPower = nil
     player.currentCast.spell = nil
