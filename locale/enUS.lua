@@ -22,6 +22,12 @@ L["CABehaviorAlways"] = "Always"
 L["CABehaviorBoss"] = "Only against bosses"
 L["CABehaviorNever"] = "Never"
 
+L["FoE behavior"] = true
+L["FoEBehaviorDesc"] = "Controls the behavior for Fury of Elune"
+L["FoEBehaviorAlways"] = "Always"
+L["FoEBehaviorBoss"] = "Only against bosses"
+L["FoEBehaviorNever"] = "Never"
+
 L["General"] = true
 
 L["Display"] = true

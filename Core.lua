@@ -115,14 +115,23 @@ local options = {
                     set = function(_, val) BalanceSpellSuggest.db.profile.behavior.dotRefreshTime = val end,
                     get = function(_) return BalanceSpellSuggest.db.profile.behavior.dotRefreshTime end
                 },
-                caBehavior = {
+                ca = {
                     name = L["CA behavior"],
                     desc = L["CABehaviorDesc"],
                     type = "select",
-                    order = 6,
+                    order = 2,
                     values = { always = L["CABehaviorAlways"], boss = L["CABehaviorBoss"], never = L["CABehaviorNever"] },
-                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.caBehavior = val end,
-                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.caBehavior end
+                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.CA = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.CA end
+                },
+                foe = {
+                    name = L["FoE behavior"],
+                    desc = L["FoEBehaviorDesc"],
+                    type = "select",
+                    order = 3,
+                    values = { always = L["FoEBehaviorAlways"], boss = L["FoEBehaviorBoss"], never = L["FoEBehaviorNever"] },
+                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.FoE = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.FoE end
                 },
             }
         },
@@ -396,7 +405,8 @@ local defaults = {
     profile = {
         behavior = {
             dotRefreshTime = 7,
-            caBehavior = "boss",
+            CA = "boss",
+            FoE = "boss",
         },
         display = {
             general = {
@@ -600,6 +610,7 @@ function BalanceSpellSuggest:OnInitialize()
             }
         },
         celestialAlignmentReady = false,
+        celestialAlignmentCD = 0,
         --newMoonReady = false,
         --halfMoonReady = false,
         --fullMoonReady = false,
@@ -1137,10 +1148,11 @@ function BalanceSpellSuggest:UpdatePlayerState()
     self.player.currentCast.id = id
     self.player.currentCast.interruptable = interrupt
 
-    if select(2, GetSpellCooldown(194223)) == 0 then
-        self.player.celestialAlignmentReady = true
+    local start, dur, _, _ = GetSpellCooldown(194223)
+    if dur > 0 then
+        self.player.celestialAlignmentCD = dur - (self.player.time - start)
     else
-        self.player.celestialAlignmentReady = false
+        self.player.celestialAlignmentCD = 0
     end
 
     if select(2, GetSpellCooldown(102560)) == 0 then
@@ -1155,6 +1167,8 @@ function BalanceSpellSuggest:UpdatePlayerState()
     else
         self.player.furyOfEluneCD = 0
     end
+
+
 
     -- self.player.furyOfEluneCD = min(self.player.time - select(1, GetSpellCooldown(202770)), 0)
     --print("t: "..tostring(self.player.time).." cd: "..tostring(select(1, GetSpellCooldown(202770))))
@@ -1314,28 +1328,42 @@ function BalanceSpellSuggest:curSpell(player)
         return stellarflare, player.power + player.astralpower.stellarflare
     end
 
-    if player.talents.furyofelune then
-        -- if FoE is skilled
-        if player.furyOfEluneCD == 0 then
-            return furyofelune, player.power
-        end
-
-    else
-        -- if FoE is not skilled
-
+    -- get rid of empowerments
+    if player.buffs.starsurgeSolarBonus == 3 and player.buffs.starsurgeLunarBonus < 3 then
+        return solarwrath,  player.power + player.astralpower.solarwrath
+    elseif player.buffs.starsurgeSolarBonus < 3 and player.buffs.starsurgeLunarBonus == 3 then
+        return lunarstrike, player.power + player.astralpower.lunarstrike
+    elseif player.buffs.starsurgeSolarBonus == 3 and player.buffs.starsurgeLunarBonus == 3 then
+        -- both at 3, does not matter which, use solar because faster cast
+        return solarwrath, player.power + player.astralpower.solarwrath
     end
 
-    if player.power >= 70 then
-        -- if we are above 70 AP and are not capped with empowerments, cast starsurge
+    if player.talents.furyofelune and (self.db.profile.behavior.FoE == 'always' or (self.db.profile.behavior.FoE == 'boss' and player.target.isBoss)) then
+        -- if FoE is skilled and should be displayed
+        if player.furyOfEluneCD == 0 and player.power <= 70 then
+            -- and its off cooldown
+            return furyofelune, player.power
+        end
+    end
+
+    if (self.db.profile.behavior.CA == 'always' or (self.db.profile.behavior.CA == 'boss' and player.target.isBoss)) then
+        -- if FoE is skilled and should be displayed
+        if player.celestialAlignmentCD == 0 then
+            -- and its off cooldown
+            return celestialalignment, player.power
+        end
+    end
+
+    if player.power >= 60 then
+        -- if we are above 60 AP and are not capped with empowerments, cast starsurge
         if player.buffs.starsurgeSolarBonus < 2 and player.buffs.starsurgeLunarBonus < 2 then
             return starsurge, player.power + player.astralpower.starsurge
         end
     end
 
     -- in all other cases
-
-    if player.buffs.starsurgeLunarBonus > 0 and player.buffs.starsurgeSolarBonus < 3 then
-        -- if we have lunar empowerments, but not 3 solar, cast LS
+    if player.buffs.starsurgeLunarBonus > player.buffs.starsurgeSolarBonus then
+        -- if we have more lunar emps than solar, cast lunar otherwise cast solar
         return lunarstrike, player.power + player.astralpower.lunarstrike
     end
 
