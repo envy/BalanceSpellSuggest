@@ -50,8 +50,6 @@ L["sizeDesc"] = "Size of the icons"
 L["SpellIcon"] = "Spell icon"
 L["Glow on OF style"] = true
 L["Glow on OF style Desc"] = "Whether and what glow to show if your next Lunar Strike is instant because of Owlkin Frenzy"
-L["GlowWhenAll"] = "All spells"
-L["GlowWhenOnlyCasts"] = "Only for spells with cast times"
 L["showGCD"] = "Show GCD"
 L["showGCDDesc"] = "Show a cooldown spiral for the global cooldown"
 

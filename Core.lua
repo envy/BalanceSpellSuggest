@@ -1012,8 +1012,8 @@ function BalanceSpellSuggest:UpdateFrames()
     self:UpdateTargetState()
 
     if self.db.profile.display.dotTimer.enable then
-        self:TimerFrameUpdate(self.moonfireFrame, self.player.target.debuffs.moonfire)
-        self:TimerFrameUpdate(self.sunfireFrame, self.player.target.debuffs.sunfire)
+        self:TimerFrameUpdate(self.moonfireFrame, self.player.target.debuffs.moonfire, 6.6)
+        self:TimerFrameUpdate(self.sunfireFrame, self.player.target.debuffs.sunfire, 5.4)
     end
 
     local curTexturePath, afterCurEnergy = self:curSpell()
@@ -1285,14 +1285,14 @@ function BalanceSpellSuggest:UpdateTargetState()
 end
 
 
-function BalanceSpellSuggest:TimerFrameUpdate(frame, duration)
+function BalanceSpellSuggest:TimerFrameUpdate(frame, duration, refreshTime)
     if duration <= 0 then
         frame.bssTexture:SetVertexColor(1.0, 0, 0)
         frame.text:SetShown(false)
         frame.highlightText:SetShown(false)
     else
         frame.bssTexture:SetVertexColor(1.0, 1.0, 1.0)
-        if duration <= self.db.profile.behavior.dotRefreshTime then
+        if duration <= refreshTime then
             frame.text:SetShown(false)
             frame.highlightText:SetShown(true)
             frame.highlightText:SetText(string.format("%.1f", duration))
