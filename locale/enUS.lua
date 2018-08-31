@@ -13,8 +13,8 @@ If you have enabled the predicted energy display, the left number will show you 
 If you are at 100 astral power, they will show an asterisk (*)."
 
 L["Behavior"] = true
-L["DoT refresh time"] = true
-L["dotRefreshTimeDesc"] = "The maximum remaining time on the DoT effects before reminding to refresh them."
+L["SS power threshold"] = true
+L["SS power threshold Desc"] = "The amount of Astral Power that you need to start suggesting Starsurge."
 
 L["CA behavior"] = true
 L["CABehaviorDesc"] = "Controls the behavior for Celestial Alignment"
@@ -27,6 +27,12 @@ L["FoEBehaviorDesc"] = "Controls the behavior for Fury of Elune"
 L["FoEBehaviorAlways"] = "Always"
 L["FoEBehaviorBoss"] = "Only against bosses"
 L["FoEBehaviorNever"] = "Never"
+
+L["FoE power threshold"]  = true
+L["FoE power threshold Desc"] = "The amount of Astral Power that you need to have to start suggesting Fury of Elune."
+
+L["FoE power max"] = true
+L["FoE power max Desc"] = "The amount of Astral Power that you need to have to stop suggesting Fury of Elune."
 
 L["General"] = true
 
@@ -42,10 +48,8 @@ L["Opacity"] = true
 L["sizeDesc"] = "Size of the icons"
 
 L["SpellIcon"] = "Spell icon"
-L["empMoonkinGlow"] = "Glow on OF style"
-L["empMoonkinGlowDesc"] = "Whether and what glow to show if your next spell is instant because of Owlkin Frenzy"
-L["empMoonkinGlowWhen"] = "Glow on OF behavior"
-L["empMoonkinGlowWhenDesc"] = "Whether to show the glow for every suggested spell or only for spells with cast times"
+L["Glow on OF style"] = true
+L["Glow on OF style Desc"] = "Whether and what glow to show if your next Lunar Strike is instant because of Owlkin Frenzy"
 L["GlowWhenAll"] = "All spells"
 L["GlowWhenOnlyCasts"] = "Only for spells with cast times"
 L["showGCD"] = "Show GCD"

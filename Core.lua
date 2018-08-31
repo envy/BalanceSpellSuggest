@@ -102,18 +102,18 @@ local options = {
             type = "group",
             order = 2,
             args = {
-                dotRefreshTime = {
-                    name = L["DoT refresh time"],
-                    desc = L["dotRefreshTimeDesc"],
+                ssPowerThreshold = {
+                    name = L["SS power threshold"],
+                    desc = L["SS power threshold Desc"],
                     type = "range",
                     order = 1,
-                    min = 0,
-                    max = 40,
-                    softMin = 1,
-                    softMax = 20,
+                    min = 40,
+                    max = 90,
+                    softMin = 40,
+                    softMax = 60,
                     step = 1,
-                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.dotRefreshTime = val end,
-                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.dotRefreshTime end
+                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.startsurgePower = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.startsurgePower end
                 },
                 ca = {
                     name = L["CA behavior"],
@@ -132,6 +132,32 @@ local options = {
                     values = { always = L["FoEBehaviorAlways"], boss = L["FoEBehaviorBoss"], never = L["FoEBehaviorNever"] },
                     set = function(_, val) BalanceSpellSuggest.db.profile.behavior.FoE = val end,
                     get = function(_) return BalanceSpellSuggest.db.profile.behavior.FoE end
+                },
+                foePowerThreshold = {
+                    name = L["FoE power threshold"],
+                    desc = L["FoE power threshold Desc"],
+                    type = "range",
+                    order = 4,
+                    min = 0,
+                    max = 80,
+                    softMin = 0,
+                    softMax = 60,
+                    step = 1,
+                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.FoEPower = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.FoEPower end
+                },
+                foePowerMax = {
+                    name = L["FoE power max"],
+                    desc = L["FoE power max Desc"],
+                    type = "range",
+                    order = 5,
+                    min = 0,
+                    max = 100,
+                    softMin = 0,
+                    softMax = 100,
+                    step = 1,
+                    set = function(_, val) BalanceSpellSuggest.db.profile.behavior.FoEPowerMax = val end,
+                    get = function(_) return BalanceSpellSuggest.db.profile.behavior.FoEPowerMax end
                 },
             }
         },
@@ -237,8 +263,8 @@ local options = {
                     order = 1,
                     args = {
                         empMoonkinGlow = {
-                            name = L["empMoonkinGlow"],
-                            desc = L["empMoonkinGlowDesc"],
+                            name = L["Glow on OF style"],
+                            desc = L["Glow on OF style Desc"],
                             type = "select",
                             order = 1,
                             values = { none = L["GlowNone"], normal = L["GlowNormal"], spellalert = L["GlowSpellAlert"] },
@@ -247,18 +273,6 @@ local options = {
                                 BalanceSpellSuggest:UpdateFramePosition()
                             end,
                             get = function(_) return BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlow end
-                        },
-                        empMoonkinGlowWhen = {
-                            name = L["empMoonkinGlowWhen"],
-                            desc = L["empMoonkinGlowWhenDesc"],
-                            type = "select",
-                            order = 2,
-                            values = { all = L["GlowWhenAll"], onlyCasts = L["GlowWhenOnlyCasts"] },
-                            set = function(_, val)
-                                BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlowWhen = val
-                                BalanceSpellSuggest:UpdateFramePosition()
-                            end,
-                            get = function(_) return BalanceSpellSuggest.db.profile.display.spellIcon.empMoonkinGlowWhen end
                         },
                         showGCD = {
                             name = L["showGCD"],
@@ -404,9 +418,11 @@ local options = {
 local defaults = {
     profile = {
         behavior = {
-            dotRefreshTime = 7,
+            startsurgePower = 50,
             CA = "boss",
             FoE = "boss",
+            FoEPower = 20,
+            FoEPowerMax = 80,
         },
         display = {
             general = {
@@ -420,7 +436,6 @@ local defaults = {
             },
             spellIcon = {
                 empMoonkinGlow = "spellalert",
-                empMoonkinGlowWhen = "all",
                 showGCD = true,
                 predictedEnergy = {
                     show = true,
@@ -510,10 +525,6 @@ local function texToName(t)
     end
 end
 
-local function isNotInstant(n)
-    return n == lunarstrike or n == solarwrath or n == stellarflare
-end
-
 -- Always called
 function BalanceSpellSuggest:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New("BalanceSpellSuggestDB", defaults, true)
@@ -555,13 +566,13 @@ function BalanceSpellSuggest:OnInitialize()
             furyofelune = false,
         },
         castTimes = {
+            gcd = 1.5,
             lunarstrike = 0,
             solarwrath = 0,
             stellarflare = 0,
             --newmoon = 0,
             --halfmoon = 0,
             --fullmoon = 0,
-            gcd = 1.5,
             starsurge = 1.5, -- GCD
             starfall = 1.5, -- GCD
             moonfire = 1.5, -- GCD
@@ -573,17 +584,20 @@ function BalanceSpellSuggest:OnInitialize()
         },
         astralpower = {
             gcd = 0,
-            solarwrath = solarWrathBase,
             lunarstrike = lunarStrikeBase,
-            moonfire = moonfireBase,
-            sunfire = sunfireBase,
+            solarwrath = solarWrathBase,
             stellarflare = stellarflasebase,
-            starsurge = starsurgebase,
-            starfall = starfallbase,
-            furyofelune = fureyofelunebase,
             --newmoon = newmoonbase,
             --halfmoon = halfmoonbase,
             --fullmoon = fullmoonbase,
+            starsurge = starsurgebase,
+            starfall = starfallbase,
+            moonfire = moonfireBase,
+            sunfire = sunfireBase,
+            moonkinform = 0,
+            celestialalignment = 0,
+            furyofelune = fureyofelunebase,
+            solarbeam = 0,
         },
         inCombat = false,
         power = 0,
@@ -615,6 +629,7 @@ function BalanceSpellSuggest:OnInitialize()
         --halfMoonReady = false,
         --fullMoonReady = false,
         furyOfEluneCD = 0,
+        furyOfEluneTime = 0,
         incarnationReady = false,
         --moonCharges = 0,
         --moonChargeCDStart = 0,
@@ -1063,25 +1078,9 @@ function BalanceSpellSuggest:UpdateFrames()
 
     if self.player.buffs.owlkinFrenzy > 0 then
         if self.db.profile.display.spellIcon.empMoonkinGlow == "normal" then
-            if self.db.profile.display.spellIcon.empMoonkinGlowWhen == "onlyCasts" then
-                if isNotInstant(curTexturePath) then
-                    self.curSpellFrame.glowTexture:SetShown(true)
-                else
-                    self.curSpellFrame.glowTexture:SetShown(false)
-                end
-            else
-                self.curSpellFrame.glowTexture:SetShown(true)
-            end
+            self.curSpellFrame.glowTexture:SetShown(true)
         elseif self.db.profile.display.spellIcon.empMoonkinGlow == "spellalert" then
-            if self.db.profile.display.spellIcon.empMoonkinGlowWhen == "onlyCasts" then
-                if isNotInstant(curTexturePath) then
-                    LBG.ShowOverlayGlow(self.curSpellFrame)
-                else
-                    LBG.HideOverlayGlow(self.curSpellFrame)
-                end
-            else
-                LBG.ShowOverlayGlow(self.curSpellFrame)
-            end
+            LBG.ShowOverlayGlow(self.curSpellFrame)
         end
     else
         self.curSpellFrame.glowTexture:SetShown(false)
@@ -1164,8 +1163,11 @@ function BalanceSpellSuggest:UpdatePlayerState()
     local start, dur, _, _ = GetSpellCooldown(202770)
     if dur > 0 then
         self.player.furyOfEluneCD = dur - (self.player.time - start)
+        -- FoE has a CD of 60s and is active for 8.
+        self.player.fureOfEluneTime = max(8 - (60 - self.player.furyOfEluneCD), 0)
     else
         self.player.furyOfEluneCD = 0
+        self.player.furyOfEluneTime = 0
     end
 
 
@@ -1303,72 +1305,98 @@ function BalanceSpellSuggest:TimerFrameUpdate(frame, duration)
 end
 
 
+function BalanceSpellSuggest:nextPower(player, cast)
+    local foebonus = 0
+    if player.furyOfEluneTime > 0 then
+        if player.castTimes[cast] <= player.furyOfEluneTime then
+            foebonus = player.castTimes[cast] * fureyofelunebasegain
+        else
+            foebonus = player.furyOfEluneTime * fureyofelunebasegain
+        end
+    end
+    return player.power + foebonus + player.astralpower[cast]
+end
+
+
 function BalanceSpellSuggest:curSpell(player)
     local player = player or self.player
 
     -- we need moonkinform
     if not player.moonkinForm then
-        return moonkinform, 0
+        return moonkinform, self:nextPower(player, "moonkinform")
     end
 
     -- opener
     if not player.inCombat and player.power == 0 then
-        return solarwrath, player.astralpower.solarwrath
+        return solarwrath, self:nextPower(player, "solarwrath")
     end
 
+    -- we check if the dots are on the target for longer then SW cast time
+    -- this seems weirds, because then the first condition will also be true
+    -- however, if for some reason cast time of SW is longer, we ensure that dots do not fall off
     if player.target.debuffs.moonfire < 6.6 or player.target.debuffs.moonfire <= player.castTimes.solarwrath then
-        return moonfire, player.power + player.astralpower.moonfire
+        return moonfire, self:nextPower(player, "moonfire")
     end
 
     if player.target.debuffs.sunfire < 5.4 or player.target.debuffs.sunfire <= player.castTimes.solarwrath then
-        return sunfire, player.power + player.astralpower.sunfire
+        return sunfire, self:nextPower(player, "sunfire")
     end
 
-    if player.talents.stellarflare and (player.target.debuffs.stellarflare < 7.2 or player.target.debuffs.stellarflare <= player.castTimes.solarwrath) and player.power + player.astralpower.stellarflare >= 0 then
-        return stellarflare, player.power + player.astralpower.stellarflare
+    -- if stellar flare is skilled, also check this
+    if player.talents.stellarflare and (player.target.debuffs.stellarflare < 7.2 or player.target.debuffs.stellarflare <= player.castTimes.solarwrath) then
+        return stellarflare, self:nextPower(player, "stellarflare")
+    end
+
+    -- if OF is active and we don't have 3 SW emps, cast LS
+    -- why check SW emps? because LS ca proc a SW emp through Eclipse
+    if player.buffs.owlkinFrenzy > 0 and
+       player.buffs.starsurgeSolarBonus < 3 then
+        return lunarstrike, self:nextPower(player, "lunarstrike")
     end
 
     -- get rid of empowerments
     if player.buffs.starsurgeSolarBonus == 3 and player.buffs.starsurgeLunarBonus < 3 then
-        return solarwrath,  player.power + player.astralpower.solarwrath
+        return solarwrath, self:nextPower(player, "solarwrath")
     elseif player.buffs.starsurgeSolarBonus < 3 and player.buffs.starsurgeLunarBonus == 3 then
-        return lunarstrike, player.power + player.astralpower.lunarstrike
+        return lunarstrike, self:nextPower(player, "lunarstrike")
     elseif player.buffs.starsurgeSolarBonus == 3 and player.buffs.starsurgeLunarBonus == 3 then
         -- both at 3, does not matter which, use solar because faster cast
-        return solarwrath, player.power + player.astralpower.solarwrath
+        return solarwrath, self:nextPower(player, "solarwrath")
     end
 
-    if player.talents.furyofelune and (self.db.profile.behavior.FoE == 'always' or (self.db.profile.behavior.FoE == 'boss' and player.target.isBoss)) then
-        -- if FoE is skilled and should be displayed
-        if player.furyOfEluneCD == 0 and player.power <= 70 then
-            -- and its off cooldown
-            return furyofelune, player.power
-        end
+    -- FoE checks
+    if player.talents.furyofelune and
+       (self.db.profile.behavior.FoE == 'always' or (self.db.profile.behavior.FoE == 'boss' and player.target.isBoss)) and
+       player.power >= self.db.profile.behavior.FoEPower and
+       player.power <= self.db.profile.behavior.FoEPowerMax and
+       player.furyOfEluneCD == 0
+    then
+       return furyofelune, self:nextPower(player, "furyofelune")
     end
 
     if (self.db.profile.behavior.CA == 'always' or (self.db.profile.behavior.CA == 'boss' and player.target.isBoss)) then
         -- if FoE is skilled and should be displayed
         if player.celestialAlignmentCD == 0 then
             -- and its off cooldown
-            return celestialalignment, player.power
+            return celestialalignment, self:nextPower(player, "celestialalignment")
         end
     end
 
-    if player.power >= 60 then
-        -- if we are above 60 AP and are not capped with empowerments, cast starsurge
+    if player.power >= self.db.profile.behavior.startsurgePower then
+        -- if we are above X AP and are not capped with empowerments, cast starsurge
         if player.buffs.starsurgeSolarBonus < 2 and player.buffs.starsurgeLunarBonus < 2 then
-            return starsurge, player.power + player.astralpower.starsurge
+            return starsurge, self:nextPower(player, "starsurge")
         end
     end
 
     -- in all other cases
     if player.buffs.starsurgeLunarBonus > player.buffs.starsurgeSolarBonus then
         -- if we have more lunar emps than solar, cast lunar otherwise cast solar
-        return lunarstrike, player.power + player.astralpower.lunarstrike
+        return lunarstrike, self:nextPower(player, "lunarstrike")
     end
 
     -- otherwise, cast SW
-    return solarwrath, player.power + player.astralpower.solarwrath
+    return solarwrath, self:nextPower(player, "solarwrath")
 end
 
 
@@ -1397,6 +1425,9 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCastName)
     elseif curCastName == lunarstrikename then
         if player.buffs.starsurgeLunarBonus > 0 then
             player.buffs.starsurgeLunarBonus = max(player.buffs.starsurgeLunarBonus - 1, 0)
+        end
+        if player.buffs.owlkinFrenzy > 0 then
+            player.buffs.owlkinFrenzy = 0
         end
     elseif curCastName == solarwrathname then
         if player.buffs.starsurgeSolarBonus > 0 then
@@ -1432,6 +1463,7 @@ function BalanceSpellSuggest:nextSpell(newEnergy, curCastName)
     --end
 
     player.furyOfEluneCD = max(player.furyOfEluneCD - timeDiff, 0)
+    player.furyOfEluneTime = max(player.furyOfEluneTime - timeDiff, 0)
 
     player.currentCast.startPower = nil
     player.currentCast.spell = nil
