@@ -257,7 +257,7 @@ local options = {
                         },
                     },
                 },
-                spellicon = {
+                spellIcon = {
                     name = L["SpellIcon"],
                     type = "group",
                     order = 1,
@@ -525,6 +525,28 @@ local function texToName(t)
     end
 end
 
+local function idToCasttime(times, id)
+    if id == 8921 then
+        return times.moonfire
+    elseif id == 93402 then
+        return times.sunfire
+    elseif id == 78674 then
+        return times.starsurge
+    elseif id == 190984 then
+        return times.solarwrath
+    elseif id == 194153 then
+        return times.lunarstrike
+    elseif id == 202770 then
+        return times.furyofelune
+    elseif id == 194223 then
+        return times.celestialalignment
+    elseif id == 102560 then
+        return times.incarnation
+    elseif id == 24858 then
+        return times.moonkinform
+    end
+end
+
 -- Always called
 function BalanceSpellSuggest:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New("BalanceSpellSuggestDB", defaults, true)
@@ -579,6 +601,7 @@ function BalanceSpellSuggest:OnInitialize()
             sunfire = 1.5, -- GCD
             moonkinform = 1.5, -- GCD
             celestialalignment = 1.5, -- GCD
+            incarnation = 1.5, -- GCD
             furyofelune = 1.5, -- GCD
             solarbeam = 0, -- no GCD
         },
@@ -596,6 +619,7 @@ function BalanceSpellSuggest:OnInitialize()
             sunfire = sunfireBase,
             moonkinform = 0,
             celestialalignment = 0,
+            incarnation = 0,
             furyofelune = fureyofelunebase,
             solarbeam = 0,
         },
@@ -677,11 +701,12 @@ function BalanceSpellSuggest:PLAYER_ENTERING_WORLD()
 end
 
 
-function BalanceSpellSuggest:UNIT_SPELLCAST_SUCCEEDED(_, unit, name, rank, counter, id)
+function BalanceSpellSuggest:UNIT_SPELLCAST_SUCCEEDED(_, unit, _, id)
     if unit ~= "player" then
         return
     end
-    if self.db.profile.display.spellIcon.showGCD and self.player.castTimes[string.lower(name)] ~= nil then
+    local time = idToCasttime(self.player.castTimes, id)
+    if self.db.profile.display.spellIcon.showGCD and time ~= nil then
         self.player.gcd.start = GetTime()
         self.player.gcd.duration = self.player.castTimes.gcd
         self.curSpellFrame.cooldown:SetCooldown(self.player.gcd.start, self.player.gcd.duration)
