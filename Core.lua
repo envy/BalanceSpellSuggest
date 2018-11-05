@@ -559,6 +559,8 @@ function BalanceSpellSuggest:OnInitialize()
     BalanceSpellSuggest:RegisterEvent("CHARACTER_POINTS_CHANGED")
     BalanceSpellSuggest:RegisterEvent("PLAYER_REGEN_DISABLED")
     BalanceSpellSuggest:RegisterEvent("PLAYER_REGEN_ENABLED")
+    BalanceSpellSuggest:RegisterEvent("UNIT_SPELLCAST_START")
+    BalanceSpellSuggest:RegisterEvent("UNIT_SPELLCAST_STOP")
     BalanceSpellSuggest:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
     BalanceSpellSuggest:RegisterEvent("PLAYER_ENTERING_WORLD")
 
@@ -701,13 +703,34 @@ function BalanceSpellSuggest:PLAYER_ENTERING_WORLD()
 end
 
 
+function BalanceSpellSuggest:UNIT_SPELLCAST_START(_, unit, _, id)
+    if unit ~= "player" then
+        return
+    end
+    if self.db.profile.display.spellIcon.showGCD then
+        self.player.gcd.start, self.player.gcd.duration, _, _ = GetSpellCooldown(61304)
+        self.player.gcd.duration = self.player.castTimes.gcd
+        self.curSpellFrame.cooldown:SetCooldown(self.player.gcd.start, self.player.gcd.duration)
+    end
+end
+
 function BalanceSpellSuggest:UNIT_SPELLCAST_SUCCEEDED(_, unit, _, id)
     if unit ~= "player" then
         return
     end
-    local time = idToCasttime(self.player.castTimes, id)
-    if self.db.profile.display.spellIcon.showGCD and time ~= nil then
-        self.player.gcd.start = GetTime()
+    if self.db.profile.display.spellIcon.showGCD then
+        self.player.gcd.start, self.player.gcd.duration, _, _ = GetSpellCooldown(61304)
+        self.player.gcd.duration = self.player.castTimes.gcd
+        self.curSpellFrame.cooldown:SetCooldown(self.player.gcd.start, self.player.gcd.duration)
+    end
+end
+
+function BalanceSpellSuggest:UNIT_SPELLCAST_STOP(_, unit, _, id)
+    if unit ~= "player" then
+        return
+    end
+    if self.db.profile.display.spellIcon.showGCD then
+        self.player.gcd.start, self.player.gcd.duration, _, _ = GetSpellCooldown(61304)
         self.player.gcd.duration = self.player.castTimes.gcd
         self.curSpellFrame.cooldown:SetCooldown(self.player.gcd.start, self.player.gcd.duration)
     end
